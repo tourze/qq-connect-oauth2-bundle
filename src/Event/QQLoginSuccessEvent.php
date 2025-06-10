@@ -50,7 +50,7 @@ class QQLoginSuccessEvent extends Event
      */
     public function getOpenId(): string
     {
-        return $this->userInfo->openId;
+        return $this->userInfo->getOpenId();
     }
 
     /**
