@@ -1,19 +1,20 @@
 services:
-  # default configuration for services in *this* file
-  _defaults:
-    autowire: true      # Automatically injects dependencies in your services.
-    autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+    _defaults:
+        autowire: true
+        autoconfigure: true
 
-  Tourze\QQConnectOAuth2Bundle\Controller\:
-    resource: '../../Controller/'
-  Tourze\QQConnectOAuth2Bundle\Repository\:
-    resource: '../../Repository/'
-  Tourze\QQConnectOAuth2Bundle\Service\:
-    resource: '../../Service/'
+    Tourze\QQConnectOAuth2Bundle\:
+        resource: '../../*'
+        exclude:
+            - '../../{DependencyInjection,Entity,Migrations,Tests,Kernel.php}'
 
-  Tourze\QQConnectOAuth2Bundle\Contract\QQApiClientInterface:
-    alias: Tourze\QQConnectOAuth2Bundle\Service\QQApiClient
-  Tourze\QQConnectOAuth2Bundle\Contract\OAuth2ServiceInterface:
-    alias: Tourze\QQConnectOAuth2Bundle\Service\OAuth2Service
-  Tourze\QQConnectOAuth2Bundle\Contract\QQConfigRepositoryInterface:
-    alias: Tourze\QQConnectOAuth2Bundle\Repository\QQConfigRepository
+    Tourze\QQConnectOAuth2Bundle\Controller\:
+        resource: '../../Controller'
+        tags: ['controller.service_arguments']
+
+    Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service:
+        public: true
+
+    Tourze\QQConnectOAuth2Bundle\Service\AttributeControllerLoader:
+        tags:
+            - { name: 'routing.loader' }

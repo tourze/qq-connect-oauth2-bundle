@@ -1,0 +1,30 @@
+# Test configuration for QQConnectOAuth2Bundle
+framework:
+    test: true
+    session:
+        storage_factory_id: session.storage.factory.mock_file
+
+doctrine:
+    dbal:
+        url: 'sqlite:///:memory:'
+    orm:
+        auto_generate_proxy_classes: true
+        auto_mapping: true
+        mappings:
+            QQConnectOAuth2Bundle:
+                is_bundle: true
+                type: attribute
+                dir: '%kernel.project_dir%/../../src/Entity'
+                prefix: 'Tourze\QQConnectOAuth2Bundle\Entity'
+                alias: QQConnectOAuth2Bundle
+
+services:
+    _defaults:
+        public: true
+        autowire: true
+        autoconfigure: true
+
+    # Make commands available for testing
+    Tourze\QQConnectOAuth2Bundle\Command\:
+        resource: '../../src/Command'
+        tags: ['console.command']
