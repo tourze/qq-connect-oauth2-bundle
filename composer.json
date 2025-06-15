@@ -23,7 +23,6 @@
     "symfony/yaml": "^6.4 || ^7.1",
     "tourze/doctrine-indexed-bundle": "0.0.*",
     "tourze/doctrine-timestamp-bundle": "0.0.*",
-    "tourze/routing-auto-loader-bundle": "0.0.*",
     "tourze/symfony-routing-auto-loader-bundle": "0.0.*"
   },
   "require-dev": {
