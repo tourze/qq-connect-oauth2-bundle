@@ -3,10 +3,15 @@
 namespace Tourze\QQConnectOAuth2Bundle\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2State;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
+use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2ApiException;
+use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2ConfigurationException;
+use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2Exception;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository;
@@ -17,6 +22,8 @@ class QQOAuth2Service
     private const TOKEN_URL = 'https://graph.qq.com/oauth2.0/token';
     private const OPENID_URL = 'https://graph.qq.com/oauth2.0/me';
     private const USER_INFO_URL = 'https://graph.qq.com/user/get_user_info';
+    private const DEFAULT_TIMEOUT = 30;
+    private const MAX_RETRY_ATTEMPTS = 3;
 
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -24,7 +31,8 @@ class QQOAuth2Service
         private QQOAuth2StateRepository $stateRepository,
         private QQOAuth2UserRepository $userRepository,
         private EntityManagerInterface $entityManager,
-        private UrlGeneratorInterface $urlGenerator
+        private UrlGeneratorInterface $urlGenerator,
+        private ?LoggerInterface $logger = null
     ) {
     }
 
@@ -32,7 +40,7 @@ class QQOAuth2Service
     {
         $config = $this->configRepository->findValidConfig();
         if (!$config) {
-            throw new \RuntimeException('No valid QQ OAuth2 configuration found');
+            throw new QQOAuth2ConfigurationException('No valid QQ OAuth2 configuration found');
         }
 
         $state = bin2hex(random_bytes(16));
@@ -62,7 +70,7 @@ class QQOAuth2Service
     {
         $stateEntity = $this->stateRepository->findValidState($state);
         if (!$stateEntity || !$stateEntity->isValid()) {
-            throw new \RuntimeException('Invalid or expired state');
+            throw new QQOAuth2Exception('Invalid or expired state', 0, null, ['state' => $state]);
         }
 
         $stateEntity->markAsUsed();
@@ -92,25 +100,72 @@ class QQOAuth2Service
 
     private function exchangeCodeForToken(string $code, string $appId, string $appSecret, string $redirectUri): array
     {
-        $response = $this->httpClient->request('GET', self::TOKEN_URL, [
-            'query' => [
-                'grant_type' => 'authorization_code',
-                'client_id' => $appId,
-                'client_secret' => $appSecret,
-                'code' => $code,
-                'redirect_uri' => $redirectUri,
-            ],
-        ]);
+        try {
+            $response = $this->httpClient->request('GET', self::TOKEN_URL, [
+                'query' => [
+                    'grant_type' => 'authorization_code',
+                    'client_id' => $appId,
+                    'client_secret' => $appSecret,
+                    'code' => $code,
+                    'redirect_uri' => $redirectUri,
+                ],
+                'timeout' => self::DEFAULT_TIMEOUT,
+                'headers' => [
+                    'User-Agent' => 'QQConnectOAuth2Bundle/1.0',
+                    'Accept' => 'application/x-www-form-urlencoded',
+                ],
+            ]);
 
-        $content = $response->getContent();
-        parse_str($content, $data);
+            $content = $response->getContent();
+            parse_str($content, $data);
+        } catch (HttpExceptionInterface $e) {
+            $this->logger?->error('QQ OAuth2 token exchange HTTP error', [
+                'error' => $e->getMessage(),
+                'status_code' => $e->getResponse()->getStatusCode(),
+            ]);
+            throw new QQOAuth2ApiException(
+                'Failed to communicate with QQ API for token exchange',
+                0,
+                $e,
+                self::TOKEN_URL,
+                null
+            );
+        } catch (\Exception $e) {
+            $this->logger?->error('QQ OAuth2 token exchange error', ['error' => $e->getMessage()]);
+            throw new QQOAuth2ApiException(
+                'Network error during token exchange',
+                0,
+                $e,
+                self::TOKEN_URL,
+                null
+            );
+        }
 
         if (isset($data['error'])) {
-            throw new \RuntimeException(sprintf('Failed to exchange code for token: %s - %s', $data['error'], $data['error_description'] ?? ''));
+            $this->logger?->warning('QQ OAuth2 token exchange API error', [
+                'error' => $data['error'],
+                'error_description' => $data['error_description'] ?? '',
+            ]);
+            throw new QQOAuth2ApiException(
+                sprintf('Failed to exchange code for token: %s - %s', $data['error'], $data['error_description'] ?? ''),
+                0,
+                null,
+                self::TOKEN_URL,
+                $data
+            );
         }
 
         if (!isset($data['access_token']) || empty($data['access_token'])) {
-            throw new \RuntimeException(sprintf('No access token received from QQ API. Response: %s', substr($content, 0, 200)));
+            $this->logger?->error('QQ OAuth2 no access token received', [
+                'response' => substr($content, 0, 200),
+            ]);
+            throw new QQOAuth2ApiException(
+                'No access token received from QQ API',
+                0,
+                null,
+                self::TOKEN_URL,
+                $data
+            );
         }
 
         return $data;
@@ -120,6 +175,11 @@ class QQOAuth2Service
     {
         $response = $this->httpClient->request('GET', self::OPENID_URL, [
             'query' => ['access_token' => $accessToken],
+            'timeout' => self::DEFAULT_TIMEOUT,
+            'headers' => [
+                'User-Agent' => 'QQConnectOAuth2Bundle/1.0',
+                'Accept' => 'application/json',
+            ],
         ]);
 
         $content = $response->getContent();
@@ -130,17 +190,17 @@ class QQOAuth2Service
             $data = json_decode($json, true);
             
             if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new \RuntimeException('Failed to parse openid response');
+                throw new QQOAuth2ApiException('Failed to parse openid response', 0, null, self::OPENID_URL, null);
             }
             
             if (isset($data['error'])) {
-                throw new \RuntimeException(sprintf('Failed to get openid: %s - %s', $data['error'], $data['error_description'] ?? ''));
+                throw new QQOAuth2ApiException(sprintf('Failed to get openid: %s - %s', $data['error'], $data['error_description'] ?? ''), 0, null, self::OPENID_URL, $data);
             }
             
             return $data;
         }
         
-        throw new \RuntimeException('Invalid openid response format');
+        throw new QQOAuth2ApiException('Invalid openid response format', 0, null, self::OPENID_URL, null);
     }
 
     private function fetchUserInfo(string $accessToken, string $appId, string $openid): array
@@ -151,16 +211,21 @@ class QQOAuth2Service
                 'oauth_consumer_key' => $appId,
                 'openid' => $openid,
             ],
+            'timeout' => self::DEFAULT_TIMEOUT,
+            'headers' => [
+                'User-Agent' => 'QQConnectOAuth2Bundle/1.0',
+                'Accept' => 'application/json',
+            ],
         ]);
 
         $data = json_decode($response->getContent(), true);
         
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException('Failed to parse user info response');
+            throw new QQOAuth2ApiException('Failed to parse user info response', 0, null, self::USER_INFO_URL, null);
         }
         
         if ($data['ret'] !== 0) {
-            throw new \RuntimeException(sprintf('Failed to get user info: %s - %s', $data['ret'], $data['msg'] ?? ''));
+            throw new QQOAuth2ApiException(sprintf('Failed to get user info: %s - %s', $data['ret'], $data['msg'] ?? ''), 0, null, self::USER_INFO_URL, $data);
         }
         
         return $data;
@@ -170,7 +235,7 @@ class QQOAuth2Service
     {
         $user = $this->userRepository->findByOpenid($openid);
         if (!$user) {
-            throw new \RuntimeException('User not found');
+            throw new QQOAuth2Exception('User not found', 0, null, ['openid' => $openid]);
         }
 
         if (!$forceRefresh && !$user->isTokenExpired() && $user->getRawData()) {
@@ -198,6 +263,65 @@ class QQOAuth2Service
         return $userInfo;
     }
 
+    public function refreshExpiredTokens(): int
+    {
+        $expiredUsers = $this->userRepository->findExpiredTokenUsers();
+        $refreshed = 0;
+
+        foreach ($expiredUsers as $user) {
+            if ($this->refreshToken($user->getOpenid())) {
+                $refreshed++;
+            }
+            
+            // Add small delay to avoid rate limiting
+            usleep(100000); // 0.1 seconds
+        }
+
+        return $refreshed;
+    }
+
+    private function executeWithRetry(callable $operation, int $maxRetries = self::MAX_RETRY_ATTEMPTS): mixed
+    {
+        $lastException = null;
+
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                return $operation();
+            } catch (HttpExceptionInterface $e) {
+                $lastException = $e;
+                
+                // Don't retry on client errors (4xx)
+                if ($e->getResponse()->getStatusCode() >= 400 && $e->getResponse()->getStatusCode() < 500) {
+                    throw $e;
+                }
+                
+                // Only retry on server errors (5xx) or network issues
+                if ($attempt < $maxRetries) {
+                    $this->logger?->warning('QQ OAuth2 request failed, retrying', [
+                        'attempt' => $attempt,
+                        'max_retries' => $maxRetries,
+                        'error' => $e->getMessage(),
+                    ]);
+                    
+                    // Exponential backoff: 1s, 2s, 4s
+                    sleep(2 ** ($attempt - 1));
+                }
+            } catch (\Exception $e) {
+                $lastException = $e;
+                if ($attempt < $maxRetries) {
+                    $this->logger?->warning('QQ OAuth2 request failed, retrying', [
+                        'attempt' => $attempt,
+                        'max_retries' => $maxRetries,
+                        'error' => $e->getMessage(),
+                    ]);
+                    sleep(1);
+                }
+            }
+        }
+
+        throw $lastException;
+    }
+
     public function refreshToken(string $openid): bool
     {
         $user = $this->userRepository->findByOpenid($openid);
@@ -214,6 +338,11 @@ class QQOAuth2Service
                     'client_id' => $config->getAppId(),
                     'client_secret' => $config->getAppSecret(),
                     'refresh_token' => $user->getRefreshToken(),
+                ],
+                'timeout' => self::DEFAULT_TIMEOUT,
+                'headers' => [
+                    'User-Agent' => 'QQConnectOAuth2Bundle/1.0',
+                    'Accept' => 'application/x-www-form-urlencoded',
                 ],
             ]);
 

@@ -103,4 +103,63 @@ class QQOAuth2UserRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    public function findExpiredTokenUsers(): array
+    {
+        $qb = $this->createQueryBuilder('u');
+        $qb->andWhere($qb->expr()->lt(
+            'DATE_ADD(u.tokenUpdateTime, u.expiresIn, \'SECOND\')',
+            ':now'
+        ))
+        ->setParameter('now', new \DateTime())
+        ->andWhere($qb->expr()->isNotNull('u.refreshToken'));
+
+        return $qb->getQuery()->getResult();
+    }
+
+    public function deleteExpiredStatesUsers(int $maxAge = 86400): int
+    {
+        $expiredDate = new \DateTime();
+        $expiredDate->modify(sprintf('-%d seconds', $maxAge));
+
+        $qb = $this->getEntityManager()->createQueryBuilder();
+        return $qb->delete(QQOAuth2User::class, 'u')
+            ->andWhere('u.tokenUpdateTime < :expiredDate')
+            ->andWhere($qb->expr()->isNull('u.refreshToken'))
+            ->setParameter('expiredDate', $expiredDate)
+            ->getQuery()
+            ->execute();
+    }
+
+    public function bulkUpdateTokens(array $userData): int
+    {
+        $em = $this->getEntityManager();
+        $updated = 0;
+
+        foreach ($userData as $data) {
+            $user = $this->findByOpenid($data['openid']);
+            if ($user) {
+                $user->setAccessToken($data['access_token'])
+                    ->setExpiresIn($data['expires_in']);
+                
+                if (isset($data['refresh_token'])) {
+                    $user->setRefreshToken($data['refresh_token']);
+                }
+                
+                $em->persist($user);
+                $updated++;
+                
+                // Batch flush every 100 records
+                if ($updated % 100 === 0) {
+                    $em->flush();
+                    $em->clear();
+                }
+            }
+        }
+        
+        $em->flush();
+        $em->clear();
+        
+        return $updated;
+    }
 }

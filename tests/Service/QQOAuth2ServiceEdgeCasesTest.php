@@ -12,6 +12,8 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2State;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
+use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2ApiException;
+use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2Exception;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository;
@@ -40,7 +42,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->with('expired_state')
             ->willReturn($expiredState);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2Exception::class);
         $this->expectExceptionMessage('Invalid or expired state');
 
         $this->service->handleCallback('test_code', 'expired_state');
@@ -60,7 +62,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->with('used_state')
             ->willReturn($usedState);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2Exception::class);
         $this->expectExceptionMessage('Invalid or expired state');
 
         $this->service->handleCallback('test_code', 'used_state');
@@ -92,7 +94,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->method('request')
             ->willThrowException($exception);
 
-        $this->expectException(TransportExceptionInterface::class);
+        $this->expectException(QQOAuth2ApiException::class);
 
         $this->service->handleCallback('test_code', 'test_state');
     }
@@ -127,7 +129,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->method('request')
             ->willReturn($tokenResponse);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2ApiException::class);
         $this->expectExceptionMessage('Failed to exchange code for token: invalid_grant - Invalid authorization code');
 
         $this->service->handleCallback('invalid_code', 'test_state');
@@ -168,7 +170,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->method('request')
             ->willReturnOnConsecutiveCalls($tokenResponse, $openidResponse);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2ApiException::class);
         $this->expectExceptionMessage('Invalid openid response format');
 
         $this->service->handleCallback('test_code', 'test_state');
@@ -209,7 +211,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->method('request')
             ->willReturnOnConsecutiveCalls($tokenResponse, $openidResponse);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2ApiException::class);
         $this->expectExceptionMessage('Failed to parse openid response');
 
         $this->service->handleCallback('test_code', 'test_state');
@@ -222,7 +224,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->with('non_existent_openid')
             ->willReturn(null);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2Exception::class);
         $this->expectExceptionMessage('User not found');
 
         $this->service->getUserInfo('non_existent_openid');
@@ -286,7 +288,7 @@ class QQOAuth2ServiceEdgeCasesTest extends TestCase
             ->method('request')
             ->willReturn($response);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2ApiException::class);
         $this->expectExceptionMessage('Failed to get user info: 1002 - Invalid access token');
 
         $this->service->getUserInfo('test_openid');

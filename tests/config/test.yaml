@@ -3,6 +3,11 @@ framework:
     test: true
     session:
         storage_factory_id: session.storage.factory.mock_file
+    validation:
+        email_validation_mode: html5
+    uid:
+        default_uuid_version: 7
+        time_based_uuid_version: 7
 
 doctrine:
     dbal:
@@ -10,6 +15,8 @@ doctrine:
     orm:
         auto_generate_proxy_classes: true
         auto_mapping: true
+        controller_resolver:
+            auto_mapping: false
         mappings:
             QQConnectOAuth2Bundle:
                 is_bundle: true

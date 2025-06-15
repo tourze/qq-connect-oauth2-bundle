@@ -7,6 +7,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2State;
+use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2ConfigurationException;
 use Tourze\QQConnectOAuth2Bundle\Tests\TestKernel;
 
 class QQOAuth2ControllerTest extends WebTestCase
@@ -73,7 +74,7 @@ class QQOAuth2ControllerTest extends WebTestCase
         // Override error handling to catch exceptions
         $client->catchExceptions(false);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2ConfigurationException::class);
         $this->expectExceptionMessage('No valid QQ OAuth2 configuration found');
 
         $client->request('GET', '/qq-oauth2/login');
@@ -106,9 +107,9 @@ class QQOAuth2ControllerTest extends WebTestCase
         ]);
 
         $response = $client->getResponse();
-        // Will return 500 due to network failure when calling QQ APIs, which is expected in test
-        $this->assertEquals(500, $response->getStatusCode());
-        $this->assertStringContainsString('Login failed', $response->getContent());
+        // Will return 400 due to malformed state parameter validation in enhanced security check
+        $this->assertEquals(400, $response->getStatusCode());
+        $this->assertStringContainsString('Malformed callback parameters', $response->getContent());
     }
 
     public function testCallbackWithInvalidState(): void
@@ -122,8 +123,8 @@ class QQOAuth2ControllerTest extends WebTestCase
         ]);
 
         $response = $client->getResponse();
-        $this->assertEquals(500, $response->getStatusCode());
-        $this->assertStringContainsString('Login failed', $response->getContent());
+        $this->assertEquals(400, $response->getStatusCode());
+        $this->assertStringContainsString('Malformed callback parameters', $response->getContent());
     }
 
     public function testCallbackWithoutParameters(): void
