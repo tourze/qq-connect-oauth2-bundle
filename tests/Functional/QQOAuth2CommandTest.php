@@ -157,7 +157,6 @@ class QQOAuth2CommandTest extends KernelTestCase
 
     public function testRefreshTokenDryRun(): void
     {
-        $this->markTestSkipped('Functional tests require complex kernel setup');
         $container = self::getContainer();
         $em = $container->get('doctrine')->getManager();
 

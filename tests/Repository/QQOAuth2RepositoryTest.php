@@ -160,7 +160,12 @@ class QQOAuth2RepositoryTest extends TestCase
 
     public function testEntityRelationships(): void
     {
-        $this->markTestSkipped('CASCADE DELETE behavior varies by database engine. SQLite test setup limitation.');
+        // Enable foreign key constraints for SQLite
+        $connection = $this->entityManager->getConnection();
+        if ($connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SqlitePlatform) {
+            $connection->executeStatement('PRAGMA foreign_keys = ON');
+        }
+
         // Create config
         $config = new QQOAuth2Config();
         $config->setAppId('test_app')->setAppSecret('secret');
