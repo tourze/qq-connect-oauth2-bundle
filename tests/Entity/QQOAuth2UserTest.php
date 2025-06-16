@@ -102,7 +102,7 @@ class QQOAuth2UserTest extends TestCase
         $this->assertNull($user->getUpdateTime());
         
         // Test setting timestamps
-        $now = new \DateTime();
+        $now = new \DateTimeImmutable();
         $user->setCreateTime($now);
         $user->setUpdateTime($now);
         

@@ -44,7 +44,7 @@ class QQOAuth2ConfigTest extends TestCase
         $this->assertNull($config->getUpdateTime());
         
         // Test setting timestamps
-        $now = new \DateTime();
+        $now = new \DateTimeImmutable();
         $config->setCreateTime($now);
         $config->setUpdateTime($now);
         
