@@ -19,6 +19,7 @@ use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 )]
 class QQOAuth2ConfigCommand extends Command
 {
+    protected const NAME = 'qq-oauth2:config';
     public function __construct(
         private QQOAuth2ConfigRepository $configRepository,
         private EntityManagerInterface $entityManager
@@ -63,7 +64,7 @@ class QQOAuth2ConfigCommand extends Command
         $appId = $input->getOption('app-id');
         $appSecret = $input->getOption('app-secret');
 
-        if (!$appId || !$appSecret) {
+        if (!is_string($appId) || !is_string($appSecret) || $appId === '' || $appSecret === '') {
             $io->error('Required options: --app-id, --app-secret');
             return Command::FAILURE;
         }
@@ -72,7 +73,8 @@ class QQOAuth2ConfigCommand extends Command
         $config->setAppId($appId)
             ->setAppSecret($appSecret);
 
-        if ($scope = $input->getOption('scope')) {
+        $scope = $input->getOption('scope');
+        if (is_string($scope) && $scope !== '') {
             $config->setScope($scope);
         }
 
@@ -88,22 +90,24 @@ class QQOAuth2ConfigCommand extends Command
     private function updateConfig(InputInterface $input, SymfonyStyle $io): int
     {
         $id = $input->getOption('id');
-        if (!$id) {
+        if ($id === null) {
             $io->error('Option --id is required for update action');
             return Command::FAILURE;
         }
 
         $config = $this->configRepository->find($id);
-        if (!$config) {
+        if ($config === null) {
             $io->error(sprintf('Config with ID %d not found', $id));
             return Command::FAILURE;
         }
 
-        if ($appId = $input->getOption('app-id')) {
+        $appId = $input->getOption('app-id');
+        if (is_string($appId) && $appId !== '') {
             $config->setAppId($appId);
         }
 
-        if ($appSecret = $input->getOption('app-secret')) {
+        $appSecret = $input->getOption('app-secret');
+        if (is_string($appSecret) && $appSecret !== '') {
             $config->setAppSecret($appSecret);
         }
 
@@ -127,13 +131,13 @@ class QQOAuth2ConfigCommand extends Command
     private function deleteConfig(InputInterface $input, SymfonyStyle $io): int
     {
         $id = $input->getOption('id');
-        if (!$id) {
+        if ($id === null) {
             $io->error('Option --id is required for delete action');
             return Command::FAILURE;
         }
 
         $config = $this->configRepository->find($id);
-        if (!$config) {
+        if ($config === null) {
             $io->error(sprintf('Config with ID %d not found', $id));
             return Command::FAILURE;
         }

@@ -15,6 +15,7 @@ use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 )]
 class QQOAuth2CleanupCommand extends Command
 {
+    protected const NAME = 'qq-oauth2:cleanup';
     public function __construct(
         private QQOAuth2Service $oauth2Service
     ) {

@@ -162,7 +162,7 @@ class QQOAuth2RepositoryTest extends TestCase
     {
         // Enable foreign key constraints for SQLite
         $connection = $this->entityManager->getConnection();
-        if ($connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SqlitePlatform) {
+        if ($connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform) {
             $connection->executeStatement('PRAGMA foreign_keys = ON');
         }
 

@@ -64,7 +64,7 @@ class QQOAuth2BundleTest extends KernelTestCase
 
         // Enable foreign key constraints for SQLite
         $connection = $em->getConnection();
-        if ($connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SqlitePlatform) {
+        if ($connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform) {
             $connection->executeStatement('PRAGMA foreign_keys = ON');
         }
 

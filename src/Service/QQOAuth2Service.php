@@ -23,7 +23,6 @@ class QQOAuth2Service
     private const OPENID_URL = 'https://graph.qq.com/oauth2.0/me';
     private const USER_INFO_URL = 'https://graph.qq.com/user/get_user_info';
     private const DEFAULT_TIMEOUT = 30;
-    private const MAX_RETRY_ATTEMPTS = 3;
 
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -39,14 +38,14 @@ class QQOAuth2Service
     public function generateAuthorizationUrl(?string $sessionId = null): string
     {
         $config = $this->configRepository->findValidConfig();
-        if (!$config) {
+        if ($config === null) {
             throw new QQOAuth2ConfigurationException('No valid QQ OAuth2 configuration found');
         }
 
         $state = bin2hex(random_bytes(16));
         $stateEntity = new QQOAuth2State($state, $config);
         
-        if ($sessionId) {
+        if ($sessionId !== null) {
             $stateEntity->setSessionId($sessionId);
         }
         
@@ -69,7 +68,7 @@ class QQOAuth2Service
     public function handleCallback(string $code, string $state): QQOAuth2User
     {
         $stateEntity = $this->stateRepository->findValidState($state);
-        if (!$stateEntity || !$stateEntity->isValid()) {
+        if ($stateEntity === null || !$stateEntity->isValid()) {
             throw new QQOAuth2Exception('Invalid or expired state', 0, null, ['state' => $state]);
         }
 
@@ -234,15 +233,15 @@ class QQOAuth2Service
     public function getUserInfo(string $openid, bool $forceRefresh = false): array
     {
         $user = $this->userRepository->findByOpenid($openid);
-        if (!$user) {
+        if ($user === null) {
             throw new QQOAuth2Exception('User not found', 0, null, ['openid' => $openid]);
         }
 
-        if (!$forceRefresh && !$user->isTokenExpired() && $user->getRawData()) {
+        if (!$forceRefresh && !$user->isTokenExpired() && $user->getRawData() !== null) {
             return $user->getRawData();
         }
 
-        if ($user->isTokenExpired() && $user->getRefreshToken()) {
+        if ($user->isTokenExpired() && $user->getRefreshToken() !== null) {
             $this->refreshToken($openid);
             $user = $this->userRepository->findByOpenid($openid);
         }
@@ -280,52 +279,10 @@ class QQOAuth2Service
         return $refreshed;
     }
 
-    private function executeWithRetry(callable $operation, int $maxRetries = self::MAX_RETRY_ATTEMPTS): mixed
-    {
-        $lastException = null;
-
-        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
-            try {
-                return $operation();
-            } catch (HttpExceptionInterface $e) {
-                $lastException = $e;
-                
-                // Don't retry on client errors (4xx)
-                if ($e->getResponse()->getStatusCode() >= 400 && $e->getResponse()->getStatusCode() < 500) {
-                    throw $e;
-                }
-                
-                // Only retry on server errors (5xx) or network issues
-                if ($attempt < $maxRetries) {
-                    $this->logger?->warning('QQ OAuth2 request failed, retrying', [
-                        'attempt' => $attempt,
-                        'max_retries' => $maxRetries,
-                        'error' => $e->getMessage(),
-                    ]);
-                    
-                    // Exponential backoff: 1s, 2s, 4s
-                    sleep(2 ** ($attempt - 1));
-                }
-            } catch (\Exception $e) {
-                $lastException = $e;
-                if ($attempt < $maxRetries) {
-                    $this->logger?->warning('QQ OAuth2 request failed, retrying', [
-                        'attempt' => $attempt,
-                        'max_retries' => $maxRetries,
-                        'error' => $e->getMessage(),
-                    ]);
-                    sleep(1);
-                }
-            }
-        }
-
-        throw $lastException;
-    }
-
     public function refreshToken(string $openid): bool
     {
         $user = $this->userRepository->findByOpenid($openid);
-        if (!$user || !$user->getRefreshToken()) {
+        if ($user === null || $user->getRefreshToken() === null) {
             return false;
         }
 

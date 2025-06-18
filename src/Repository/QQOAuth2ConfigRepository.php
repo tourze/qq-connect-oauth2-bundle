@@ -32,7 +32,7 @@ class QQOAuth2ConfigRepository extends ServiceEntityRepository
 
     public function findValidConfig(): ?QQOAuth2Config
     {
-        if (!$this->cache) {
+        if ($this->cache === null) {
             return $this->findValidConfigFromDatabase();
         }
 
@@ -55,7 +55,7 @@ class QQOAuth2ConfigRepository extends ServiceEntityRepository
 
     public function findByAppId(string $appId): ?QQOAuth2Config
     {
-        if (!$this->cache) {
+        if ($this->cache === null) {
             return $this->findByAppIdFromDatabase($appId);
         }
 
@@ -77,7 +77,7 @@ class QQOAuth2ConfigRepository extends ServiceEntityRepository
 
     public function clearCache(): void
     {
-        if (!$this->cache) {
+        if ($this->cache === null) {
             return;
         }
 

@@ -18,6 +18,8 @@ use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 )]
 class QQOAuth2RefreshTokenCommand extends Command
 {
+    protected const NAME = 'qq-oauth2:refresh-token';
+
     public function __construct(
         private QQOAuth2Service $oauth2Service,
         private QQOAuth2UserRepository $userRepository
@@ -41,12 +43,12 @@ class QQOAuth2RefreshTokenCommand extends Command
         $all = $input->getOption('all');
         $dryRun = $input->getOption('dry-run');
 
-        if (!$openid && !$all) {
+        if ($openid === null && $all === false) {
             $io->error('You must specify either an OpenID or use --all option');
             return Command::FAILURE;
         }
 
-        if ($openid) {
+        if ($openid !== null) {
             return $this->refreshSingleToken($openid, $io, $dryRun);
         }
 
@@ -57,12 +59,12 @@ class QQOAuth2RefreshTokenCommand extends Command
     {
         $user = $this->userRepository->findByOpenid($openid);
         
-        if (!$user) {
+        if ($user === null) {
             $io->error(sprintf('User with OpenID %s not found', $openid));
             return Command::FAILURE;
         }
 
-        if (!$user->getRefreshToken()) {
+        if ($user->getRefreshToken() === null) {
             $io->warning(sprintf('User %s does not have a refresh token', $openid));
             return Command::FAILURE;
         }
@@ -96,7 +98,7 @@ class QQOAuth2RefreshTokenCommand extends Command
         $failedCount = 0;
 
         foreach ($users as $user) {
-            if (!$user->isTokenExpired() || !$user->getRefreshToken()) {
+            if (!$user->isTokenExpired() || $user->getRefreshToken() === null) {
                 continue;
             }
 

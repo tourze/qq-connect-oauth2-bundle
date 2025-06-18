@@ -173,7 +173,6 @@ class QQOAuth2ServiceTest extends TestCase
 
         $result = $this->service->getUserInfo('test_openid');
 
-        $this->assertIsArray($result);
         $this->assertEquals(0, $result['ret']);
         $this->assertEquals('Updated User', $result['nickname']);
     }

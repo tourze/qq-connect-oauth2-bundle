@@ -44,7 +44,7 @@ class QQOAuth2UserRepository extends ServiceEntityRepository
     {
         $user = $this->findByOpenid($data['openid']);
 
-        if (!$user) {
+        if ($user === null) {
             $user = new QQOAuth2User(
                 $data['openid'],
                 $data['access_token'],
@@ -138,7 +138,7 @@ class QQOAuth2UserRepository extends ServiceEntityRepository
 
         foreach ($userData as $data) {
             $user = $this->findByOpenid($data['openid']);
-            if ($user) {
+            if ($user !== null) {
                 $user->setAccessToken($data['access_token'])
                     ->setExpiresIn($data['expires_in']);
                 
