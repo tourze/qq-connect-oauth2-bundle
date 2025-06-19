@@ -165,7 +165,7 @@ class QQOAuth2ControllerTest extends WebTestCase
         // Session ID may or may not be available in test environment
         $state = $states[0];
         $this->assertNotNull($state->getState()); // State value should exist
-        $this->assertInstanceOf(\DateTime::class, $state->getExpireTime()); // Should have expiry time
+        $this->assertInstanceOf(\DateTimeImmutable::class, $state->getExpireTime()); // Should have expiry time
     }
 
     protected function setUp(): void

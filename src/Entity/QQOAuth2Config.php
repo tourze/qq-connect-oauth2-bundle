@@ -12,9 +12,10 @@ use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 class QQOAuth2Config implements \Stringable
 {
     use TimestampableAware;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER, options: ['comment' => 'ID'])]
     private ?int $id = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, options: ['comment' => 'QQ应用ID'])]
@@ -29,7 +30,6 @@ class QQOAuth2Config implements \Stringable
 
     #[ORM\Column(type: Types::BOOLEAN, options: ['comment' => '是否启用'])]
     private bool $valid = true;
-
 
 
     public function __toString(): string

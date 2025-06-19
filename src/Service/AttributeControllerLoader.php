@@ -6,7 +6,8 @@ use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Config\Loader\Loader;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Routing\RouteCollection;
-use Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2Controller;
+use Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2CallbackController;
+use Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2LoginController;
 use Tourze\RoutingAutoLoaderBundle\Service\RoutingAutoLoaderInterface;
 
 #[AutoconfigureTag('routing.loader')]
@@ -28,7 +29,8 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
     public function autoload(): RouteCollection
     {
         $collection = new RouteCollection();
-        $collection->addCollection($this->controllerLoader->load(QQOAuth2Controller::class));
+        $collection->addCollection($this->controllerLoader->load(QQOAuth2LoginController::class));
+        $collection->addCollection($this->controllerLoader->load(QQOAuth2CallbackController::class));
         return $collection;
     }
 

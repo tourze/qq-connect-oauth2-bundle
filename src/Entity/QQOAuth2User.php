@@ -13,9 +13,10 @@ use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository;
 class QQOAuth2User implements \Stringable
 {
     use TimestampableAware;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER, options: ['comment' => 'ID'])]
     private ?int $id = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => 'QQ OpenID'])]
@@ -49,8 +50,8 @@ class QQOAuth2User implements \Stringable
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => '过期时间（秒）'])]
     private int $expiresIn;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ['comment' => '令牌更新时间'])]
-    private \DateTime $tokenUpdateTime;
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '令牌更新时间'])]
+    private \DateTimeImmutable $tokenUpdateTime;
 
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => '关联用户引用'])]
     #[IndexColumn]
@@ -58,7 +59,7 @@ class QQOAuth2User implements \Stringable
 
     #[ORM\Column(type: Types::JSON, nullable: true, options: ['comment' => '原始数据'])]
     private ?array $rawData = null;
-    
+
     #[ORM\ManyToOne(targetEntity: QQOAuth2Config::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private QQOAuth2Config $config;
@@ -70,7 +71,7 @@ class QQOAuth2User implements \Stringable
         $this->accessToken = $accessToken;
         $this->expiresIn = $expiresIn;
         $this->config = $config;
-        $this->tokenUpdateTime = new \DateTime();
+        $this->tokenUpdateTime = new \DateTimeImmutable();
     }
 
     public function __toString(): string
@@ -162,7 +163,7 @@ class QQOAuth2User implements \Stringable
     public function setAccessToken(string $accessToken): self
     {
         $this->accessToken = $accessToken;
-        $this->tokenUpdateTime = new \DateTime();
+        $this->tokenUpdateTime = new \DateTimeImmutable();
         return $this;
     }
 
@@ -188,9 +189,15 @@ class QQOAuth2User implements \Stringable
         return $this;
     }
 
-    public function getTokenUpdateTime(): \DateTime
+    public function getTokenUpdateTime(): \DateTimeImmutable
     {
         return $this->tokenUpdateTime;
+    }
+
+    public function setTokenUpdateTime(\DateTimeInterface $tokenUpdateTime): self
+    {
+        $this->tokenUpdateTime = $tokenUpdateTime instanceof \DateTimeImmutable ? $tokenUpdateTime : \DateTimeImmutable::createFromInterface($tokenUpdateTime);
+        return $this;
     }
 
     public function getUserReference(): ?string
@@ -221,12 +228,12 @@ class QQOAuth2User implements \Stringable
         $expiresAt = (clone $this->tokenUpdateTime)->modify(sprintf('+%d seconds', $this->expiresIn));
         return $expiresAt < new \DateTime();
     }
-    
+
     public function getConfig(): QQOAuth2Config
     {
         return $this->config;
     }
-    
+
     public function setConfig(QQOAuth2Config $config): self
     {
         $this->config = $config;

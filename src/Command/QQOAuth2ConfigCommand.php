@@ -14,7 +14,7 @@ use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 
 #[AsCommand(
-    name: 'qq-oauth2:config',
+    name: self::NAME,
     description: 'Manage QQ OAuth2 configuration',
 )]
 class QQOAuth2ConfigCommand extends Command

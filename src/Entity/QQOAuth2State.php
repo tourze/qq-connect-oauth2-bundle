@@ -15,7 +15,7 @@ class QQOAuth2State implements \Stringable
     use TimestampableAware;
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column(type: Types::INTEGER)]
+    #[ORM\Column(type: Types::INTEGER, options: ['comment' => 'ID'])]
     private ?int $id = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => 'OAuth状态值'])]
@@ -29,9 +29,9 @@ class QQOAuth2State implements \Stringable
     private ?array $metadata = null;
 
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ['comment' => '过期时间'])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '过期时间'])]
     #[IndexColumn]
-    private \DateTime $expireTime;
+    private \DateTimeImmutable $expireTime;
 
     #[ORM\Column(type: Types::BOOLEAN, options: ['comment' => '是否已使用'])]
     private bool $used = false;
@@ -44,8 +44,8 @@ class QQOAuth2State implements \Stringable
     {
         $this->state = $state;
         $this->config = $config;
-        $now = new \DateTime();
-        $this->expireTime = (clone $now)->modify(sprintf('+%d seconds', $ttl));
+        $now = new \DateTimeImmutable();
+        $this->expireTime = $now->modify(sprintf('+%d seconds', $ttl));
     }
 
     public function __toString(): string
@@ -86,9 +86,15 @@ class QQOAuth2State implements \Stringable
     }
 
 
-    public function getExpireTime(): \DateTime
+    public function getExpireTime(): \DateTimeImmutable
     {
         return $this->expireTime;
+    }
+    
+    public function setExpireTime(\DateTimeInterface $expireTime): self
+    {
+        $this->expireTime = $expireTime instanceof \DateTimeImmutable ? $expireTime : \DateTimeImmutable::createFromInterface($expireTime);
+        return $this;
     }
 
     public function isUsed(): bool

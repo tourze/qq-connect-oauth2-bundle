@@ -13,7 +13,7 @@ use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository;
 use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 
 #[AsCommand(
-    name: 'qq-oauth2:refresh-token',
+    name: self::NAME,
     description: 'Refresh OAuth2 access tokens',
 )]
 class QQOAuth2RefreshTokenCommand extends Command

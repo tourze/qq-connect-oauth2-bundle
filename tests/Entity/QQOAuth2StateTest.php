@@ -20,7 +20,7 @@ class QQOAuth2StateTest extends TestCase
         $this->assertFalse($state->isUsed());
         $this->assertSame($config, $state->getConfig());
         $this->assertNull($state->getCreateTime());
-        $this->assertInstanceOf(\DateTime::class, $state->getExpireTime());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $state->getExpireTime());
     }
 
     private function createMockConfig(): QQOAuth2Config

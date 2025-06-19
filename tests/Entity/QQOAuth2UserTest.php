@@ -27,7 +27,7 @@ class QQOAuth2UserTest extends TestCase
         $this->assertNull($user->getUserReference());
         $this->assertNull($user->getRawData());
         $this->assertSame($config, $user->getConfig());
-        $this->assertInstanceOf(\DateTime::class, $user->getTokenUpdateTime());
+        $this->assertInstanceOf(\DateTimeImmutable::class, $user->getTokenUpdateTime());
         $this->assertNull($user->getCreateTime());
         $this->assertNull($user->getUpdateTime());
     }

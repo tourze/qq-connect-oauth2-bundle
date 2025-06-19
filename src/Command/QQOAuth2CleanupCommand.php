@@ -10,7 +10,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 
 #[AsCommand(
-    name: 'qq-oauth2:cleanup',
+    name: self::NAME,
     description: 'Clean up expired OAuth2 states',
 )]
 class QQOAuth2CleanupCommand extends Command
