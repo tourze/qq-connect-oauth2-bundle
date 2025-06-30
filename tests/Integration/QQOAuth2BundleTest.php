@@ -27,7 +27,7 @@ class QQOAuth2BundleTest extends KernelTestCase
 
         // Repositories are registered through Doctrine
         $em = $container->get('doctrine')->getManager();
-        $this->assertInstanceOf(QQOAuth2ConfigRepository::class, $em->getRepository(QQOAuth2Config::class));
+        $this->assertInstanceOf(QQOAuth2ConfigRepository::class, $container->get(QQOAuth2ConfigRepository::class));
     }
 
     public function testRepositoriesWork(): void
@@ -35,7 +35,7 @@ class QQOAuth2BundleTest extends KernelTestCase
         $container = self::getContainer();
         $em = $container->get('doctrine')->getManager();
 
-        $configRepo = $em->getRepository(QQOAuth2Config::class);
+        $configRepo = $container->get(QQOAuth2ConfigRepository::class);
 
         $config = new QQOAuth2Config();
         $config->setAppId('test_app_id')

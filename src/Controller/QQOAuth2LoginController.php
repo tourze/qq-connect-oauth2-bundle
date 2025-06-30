@@ -2,7 +2,6 @@
 
 namespace Tourze\QQConnectOAuth2Bundle\Controller;
 
-use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,7 +15,7 @@ class QQOAuth2LoginController extends AbstractController
     ) {
     }
 
-    #[Route('/qq-oauth2/login', name: 'qq_oauth2_login', methods: ['GET'])]
+    #[Route(path: '/qq-oauth2/login', name: 'qq_oauth2_login', methods: ['GET'])]
     public function __invoke(Request $request): RedirectResponse
     {
         try {

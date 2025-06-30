@@ -14,16 +14,15 @@ class QQOAuth2CallbackController extends AbstractController
     public function __construct(
         private QQOAuth2Service $oauth2Service,
         private ?LoggerInterface $logger = null
-    ) {
-    }
+    ) {}
 
-    #[Route('/qq-oauth2/callback', name: 'qq_oauth2_callback', methods: ['GET'])]
+    #[Route(path: '/qq-oauth2/callback', name: 'qq_oauth2_callback', methods: ['GET'])]
     public function __invoke(Request $request): Response
     {
         $code = $request->query->get('code');
         $state = $request->query->get('state');
         $error = $request->query->get('error');
-        
+
         // Check for OAuth error response
         if ($error) {
             $errorDescription = $request->query->get('error_description', 'Unknown error');
@@ -34,7 +33,7 @@ class QQOAuth2CallbackController extends AbstractController
             ]);
             return new Response(sprintf('OAuth2 Error: %s', $errorDescription), Response::HTTP_BAD_REQUEST);
         }
-        
+
         // Validate required parameters
         if (!$code || !$state) {
             $this->logger?->warning('Invalid QQ OAuth2 callback parameters', [
@@ -55,17 +54,17 @@ class QQOAuth2CallbackController extends AbstractController
 
         try {
             $user = $this->oauth2Service->handleCallback($code, $state);
-            
+
             $this->logger?->info('QQ OAuth2 login successful', [
                 'openid' => $user->getOpenid(),
                 'nickname' => $user->getNickname(),
                 'ip' => $request->getClientIp(),
             ]);
-            
+
             // Here you can integrate with your application's user system
             // For example, create or update local user, set authentication, etc.
-            
-            return new Response(sprintf('Successfully logged in as %s', $user->getNickname() ?: $user->getOpenid()));
+
+            return new Response(sprintf('Successfully logged in as %s', $user->getNickname() ?? $user->getOpenid()));
         } catch (\Exception $e) {
             $this->logger?->error('QQ OAuth2 login failed', [
                 'error' => $e->getMessage(),

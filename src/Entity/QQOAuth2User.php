@@ -76,7 +76,7 @@ class QQOAuth2User implements \Stringable
 
     public function __toString(): string
     {
-        return sprintf('QQ User: %s (%s)', $this->nickname ?: 'Unknown', $this->openid);
+        return sprintf('QQ User: %s (%s)', $this->nickname ?? 'Unknown', $this->openid);
     }
 
     public function getId(): ?int

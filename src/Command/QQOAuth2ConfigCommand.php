@@ -164,7 +164,7 @@ class QQOAuth2ConfigCommand extends Command
                 $config->getId(),
                 $config->getAppId(),
                 'Auto-generated',
-                $config->getScope() ?: 'default',
+                $config->getScope() ?? 'default',
                 $config->isValid() ? 'Yes' : 'No',
                 $config->getCreateTime()->format('Y-m-d H:i:s'),
             ];

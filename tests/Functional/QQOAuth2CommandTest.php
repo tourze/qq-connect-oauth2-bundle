@@ -8,6 +8,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2State;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
+use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
+use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository;
 use Tourze\QQConnectOAuth2Bundle\Tests\TestKernel;
 
 /**
@@ -39,7 +41,7 @@ class QQOAuth2CommandTest extends KernelTestCase
         // Verify in database
         $container = self::getContainer();
         $em = $container->get('doctrine')->getManager();
-        $repo = $em->getRepository(QQOAuth2Config::class);
+        $repo = $container->get(QQOAuth2ConfigRepository::class);
         $config = $repo->findByAppId('test_app_123');
 
         $this->assertNotNull($config);
@@ -109,7 +111,7 @@ class QQOAuth2CommandTest extends KernelTestCase
         $this->assertStringContainsString('Successfully cleaned up 1 expired states', $output);
 
         // Verify in database
-        $repo = $em->getRepository(QQOAuth2State::class);
+        $repo = $container->get(QQOAuth2StateRepository::class);
         $states = $repo->findAll();
         $this->assertCount(1, $states);
         $this->assertEquals('valid_state', $states[0]->getState());

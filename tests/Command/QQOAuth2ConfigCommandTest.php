@@ -7,6 +7,7 @@ use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
+use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 use Tourze\QQConnectOAuth2Bundle\Tests\TestKernel;
 
 class QQOAuth2ConfigCommandTest extends KernelTestCase
@@ -36,7 +37,7 @@ class QQOAuth2ConfigCommandTest extends KernelTestCase
         // Verify in database
         $container = self::getContainer();
         $em = $container->get('doctrine')->getManager();
-        $repo = $em->getRepository(QQOAuth2Config::class);
+        $repo = $container->get(QQOAuth2ConfigRepository::class);
         $config = $repo->findByAppId('test_app_123');
 
         $this->assertNotNull($config);

@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2State;
 use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2ConfigurationException;
+use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository;
 use Tourze\QQConnectOAuth2Bundle\Tests\TestKernel;
 
 class QQOAuth2ControllerTest extends WebTestCase
@@ -46,7 +47,7 @@ class QQOAuth2ControllerTest extends WebTestCase
         $this->assertStringContainsString('scope=get_user_info', $location);
 
         // Verify state was saved
-        $stateRepo = $em->getRepository(QQOAuth2State::class);
+        $stateRepo = $container->get(QQOAuth2StateRepository::class);
         $states = $stateRepo->findAll();
         $this->assertCount(1, $states);
         $this->assertFalse($states[0]->isUsed());
@@ -158,7 +159,7 @@ class QQOAuth2ControllerTest extends WebTestCase
         $client->request('GET', '/qq-oauth2/login');
 
         // Verify state was created
-        $stateRepo = $em->getRepository(QQOAuth2State::class);
+        $stateRepo = $container->get(QQOAuth2StateRepository::class);
         $states = $stateRepo->findAll();
         $this->assertCount(1, $states);
 

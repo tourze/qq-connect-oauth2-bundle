@@ -17,4 +17,9 @@ class QQConnectOAuth2Extension extends Extension
         );
         $loader->load('services.yaml');
     }
+
+    public function getAlias(): string
+    {
+        return 'qq_connect_oauth2';
+    }
 }

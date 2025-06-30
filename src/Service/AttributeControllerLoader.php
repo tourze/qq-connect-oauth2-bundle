@@ -10,7 +10,7 @@ use Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2CallbackController;
 use Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2LoginController;
 use Tourze\RoutingAutoLoaderBundle\Service\RoutingAutoLoaderInterface;
 
-#[AutoconfigureTag('routing.loader')]
+#[AutoconfigureTag(name: 'routing.loader')]
 class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInterface
 {
     private AttributeRouteControllerLoader $controllerLoader;
@@ -36,7 +36,12 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
 
     public function supports(mixed $resource, ?string $type = null): bool
     {
-        return false;
+        return $type === 'attribute';
+    }
+
+    public function getType(): string
+    {
+        return 'attribute';
     }
 }
 

@@ -32,8 +32,7 @@ class QQOAuth2Service
         private EntityManagerInterface $entityManager,
         private UrlGeneratorInterface $urlGenerator,
         private ?LoggerInterface $logger = null
-    ) {
-    }
+    ) {}
 
     public function generateAuthorizationUrl(?string $sessionId = null): string
     {
@@ -44,22 +43,22 @@ class QQOAuth2Service
 
         $state = bin2hex(random_bytes(16));
         $stateEntity = new QQOAuth2State($state, $config);
-        
+
         if ($sessionId !== null) {
             $stateEntity->setSessionId($sessionId);
         }
-        
+
         $this->entityManager->persist($stateEntity);
         $this->entityManager->flush();
 
         $redirectUri = $this->urlGenerator->generate('qq_oauth2_callback', [], UrlGeneratorInterface::ABSOLUTE_URL);
-        
+
         $params = [
             'response_type' => 'code',
             'client_id' => $config->getAppId(),
             'redirect_uri' => $redirectUri,
             'state' => $state,
-            'scope' => $config->getScope() ?: 'get_user_info',
+            'scope' => $config->getScope() ?? 'get_user_info',
         ];
 
         return self::AUTHORIZE_URL . '?' . http_build_query($params);
@@ -78,22 +77,22 @@ class QQOAuth2Service
 
         // Get config from state
         $config = $stateEntity->getConfig();
-        
+
         // Generate redirect URI
         $redirectUri = $this->urlGenerator->generate('qq_oauth2_callback', [], UrlGeneratorInterface::ABSOLUTE_URL);
-        
+
         // Exchange code for access token
         $tokenData = $this->exchangeCodeForToken($code, $config->getAppId(), $config->getAppSecret(), $redirectUri);
-        
+
         // Get user openid
         $openidData = $this->getOpenid($tokenData['access_token']);
-        
+
         // Get user info
         $userInfo = $this->fetchUserInfo($tokenData['access_token'], $config->getAppId(), $openidData['openid']);
-        
+
         // Merge all data
         $userData = array_merge($tokenData, $openidData, $userInfo);
-        
+
         return $this->userRepository->updateOrCreate($userData, $config);
     }
 
@@ -182,23 +181,23 @@ class QQOAuth2Service
         ]);
 
         $content = $response->getContent();
-        
+
         // QQ returns JSONP format: callback( {...} );
         if (preg_match('/callback\(\s*({.*?})\s*\);/', $content, $matches)) {
             $json = $matches[1];
             $data = json_decode($json, true);
-            
+
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new QQOAuth2ApiException('Failed to parse openid response', 0, null, self::OPENID_URL, null);
             }
-            
+
             if (isset($data['error'])) {
                 throw new QQOAuth2ApiException(sprintf('Failed to get openid: %s - %s', $data['error'], $data['error_description'] ?? ''), 0, null, self::OPENID_URL, $data);
             }
-            
+
             return $data;
         }
-        
+
         throw new QQOAuth2ApiException('Invalid openid response format', 0, null, self::OPENID_URL, null);
     }
 
@@ -218,15 +217,15 @@ class QQOAuth2Service
         ]);
 
         $data = json_decode($response->getContent(), true);
-        
+
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new QQOAuth2ApiException('Failed to parse user info response', 0, null, self::USER_INFO_URL, null);
         }
-        
+
         if ($data['ret'] !== 0) {
             throw new QQOAuth2ApiException(sprintf('Failed to get user info: %s - %s', $data['ret'], $data['msg'] ?? ''), 0, null, self::USER_INFO_URL, $data);
         }
-        
+
         return $data;
     }
 
@@ -248,17 +247,17 @@ class QQOAuth2Service
 
         $config = $user->getConfig();
         $userInfo = $this->fetchUserInfo($user->getAccessToken(), $config->getAppId(), $openid);
-        
+
         $user->setNickname($userInfo['nickname'] ?? null)
             ->setAvatar($userInfo['figureurl_qq_2'] ?? $userInfo['figureurl_qq_1'] ?? null)
             ->setGender($userInfo['gender'] ?? null)
             ->setProvince($userInfo['province'] ?? null)
             ->setCity($userInfo['city'] ?? null)
             ->setRawData($userInfo);
-            
+
         $this->entityManager->persist($user);
         $this->entityManager->flush();
-        
+
         return $userInfo;
     }
 
@@ -271,7 +270,7 @@ class QQOAuth2Service
             if ($this->refreshToken($user->getOpenid())) {
                 $refreshed++;
             }
-            
+
             // Add small delay to avoid rate limiting
             usleep(100000); // 0.1 seconds
         }
@@ -312,14 +311,14 @@ class QQOAuth2Service
 
             $user->setAccessToken($data['access_token'])
                 ->setExpiresIn((int)$data['expires_in']);
-                
+
             if (isset($data['refresh_token'])) {
                 $user->setRefreshToken($data['refresh_token']);
             }
-            
+
             $this->entityManager->persist($user);
             $this->entityManager->flush();
-            
+
             return true;
         } catch (\Exception $e) {
             return false;
