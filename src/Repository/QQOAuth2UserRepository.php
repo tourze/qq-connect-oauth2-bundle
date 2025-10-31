@@ -4,17 +4,13 @@ namespace Tourze\QQConnectOAuth2Bundle\Repository;
 
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
+use Tourze\PHPUnitSymfonyKernelTest\Attribute\AsRepository;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
 
 /**
  * @extends ServiceEntityRepository<QQOAuth2User>
- *
- * @method QQOAuth2User|null find($id, $lockMode = null, $lockVersion = null)
- * @method QQOAuth2User|null findOneBy(array $criteria, array $orderBy = null)
- * @method QQOAuth2User[]    findAll()
- * @method QQOAuth2User[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
+#[AsRepository(entityClass: QQOAuth2User::class)]
 class QQOAuth2UserRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
@@ -22,88 +18,51 @@ class QQOAuth2UserRepository extends ServiceEntityRepository
         parent::__construct($registry, QQOAuth2User::class);
     }
 
+    /**
+     * @return QQOAuth2User[]
+     */
     public function findByUnionid(string $unionid): array
     {
         return $this->createQueryBuilder('u')
             ->andWhere('u.unionid = :unionid')
             ->setParameter('unionid', $unionid)
             ->getQuery()
-            ->getResult();
+            ->getResult()
+        ;
+
+        /** @var array<QQOAuth2User> $result */
     }
 
+    /**
+     * @return QQOAuth2User[]
+     */
     public function findByUserReference(string $userReference): array
     {
         return $this->createQueryBuilder('u')
             ->andWhere('u.userReference = :userReference')
             ->setParameter('userReference', $userReference)
             ->getQuery()
-            ->getResult();
-    }
+            ->getResult()
+        ;
 
-    public function updateOrCreate(array $data, QQOAuth2Config $config): QQOAuth2User
-    {
-        $user = $this->findByOpenid($data['openid']);
-
-        if ($user === null) {
-            $user = new QQOAuth2User(
-                $data['openid'],
-                $data['access_token'],
-                $data['expires_in'],
-                $config
-            );
-        } else {
-            $user->setAccessToken($data['access_token'])
-                ->setExpiresIn($data['expires_in']);
-        }
-
-        if (isset($data['refresh_token'])) {
-            $user->setRefreshToken($data['refresh_token']);
-        }
-
-        if (isset($data['unionid'])) {
-            $user->setUnionid($data['unionid']);
-        }
-
-        if (isset($data['nickname'])) {
-            $user->setNickname($data['nickname']);
-        }
-
-        if (isset($data['figureurl_qq_2']) || isset($data['figureurl_qq_1'])) {
-            $avatar = $data['figureurl_qq_2'] ?? $data['figureurl_qq_1'] ?? null;
-            if ($avatar) {
-                $user->setAvatar($avatar);
-            }
-        }
-
-        if (isset($data['gender'])) {
-            $user->setGender($data['gender']);
-        }
-
-        if (isset($data['province'])) {
-            $user->setProvince($data['province']);
-        }
-
-        if (isset($data['city'])) {
-            $user->setCity($data['city']);
-        }
-
-        $user->setRawData($data);
-
-        $this->getEntityManager()->persist($user);
-        $this->getEntityManager()->flush();
-
-        return $user;
+        /** @var array<QQOAuth2User> $result */
     }
 
     public function findByOpenid(string $openid): ?QQOAuth2User
     {
-        return $this->createQueryBuilder('u')
+        $result = $this->createQueryBuilder('u')
             ->andWhere('u.openid = :openid')
             ->setParameter('openid', $openid)
             ->getQuery()
-            ->getOneOrNullResult();
+            ->getOneOrNullResult()
+        ;
+
+        return $result instanceof QQOAuth2User ? $result : null;
     }
 
+    /**
+     * @return QQOAuth2User[]
+     */
     public function findExpiredTokenUsers(): array
     {
         $qb = $this->createQueryBuilder('u');
@@ -111,10 +70,12 @@ class QQOAuth2UserRepository extends ServiceEntityRepository
             'DATE_ADD(u.tokenUpdateTime, u.expiresIn, \'SECOND\')',
             ':now'
         ))
-        ->setParameter('now', new \DateTime())
-        ->andWhere($qb->expr()->isNotNull('u.refreshToken'));
+            ->setParameter('now', new \DateTime())
+            ->andWhere($qb->expr()->isNotNull('u.refreshToken'))
+        ;
 
         return $qb->getQuery()->getResult();
+        /** @var array<QQOAuth2User> $result */
     }
 
     public function deleteExpiredStatesUsers(int $maxAge = 86400): int
@@ -122,44 +83,48 @@ class QQOAuth2UserRepository extends ServiceEntityRepository
         $expiredDate = new \DateTime();
         $expiredDate->modify(sprintf('-%d seconds', $maxAge));
 
-        $qb = $this->getEntityManager()->createQueryBuilder();
-        return $qb->delete(QQOAuth2User::class, 'u')
+        $qb = $this->createQueryBuilder('u')->delete()
             ->andWhere('u.tokenUpdateTime < :expiredDate')
-            ->andWhere($qb->expr()->isNull('u.refreshToken'))
+            ->andWhere('u.refreshToken IS NULL')
             ->setParameter('expiredDate', $expiredDate)
-            ->getQuery()
-            ->execute();
+        ;
+
+        $result = $qb->getQuery()->execute();
+
+        return is_int($result) ? $result : 0;
     }
 
-    public function bulkUpdateTokens(array $userData): int
+    /**
+     * @param string[] $openids
+     * @return QQOAuth2User[]
+     */
+    public function findUsersByOpenids(array $openids): array
     {
-        $em = $this->getEntityManager();
-        $updated = 0;
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.openid IN (:openids)')
+            ->setParameter('openids', $openids)
+            ->getQuery()
+            ->getResult()
+        ;
 
-        foreach ($userData as $data) {
-            $user = $this->findByOpenid($data['openid']);
-            if ($user !== null) {
-                $user->setAccessToken($data['access_token'])
-                    ->setExpiresIn($data['expires_in']);
-                
-                if (isset($data['refresh_token'])) {
-                    $user->setRefreshToken($data['refresh_token']);
-                }
-                
-                $em->persist($user);
-                $updated++;
-                
-                // Batch flush every 100 records
-                if ($updated % 100 === 0) {
-                    $em->flush();
-                    $em->clear();
-                }
-            }
+        /** @var array<QQOAuth2User> $result */
+    }
+
+    public function save(QQOAuth2User $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->persist($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
         }
-        
-        $em->flush();
-        $em->clear();
-        
-        return $updated;
+    }
+
+    public function remove(QQOAuth2User $entity, bool $flush = true): void
+    {
+        $this->getEntityManager()->remove($entity);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
     }
 }

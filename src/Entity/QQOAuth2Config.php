@@ -4,6 +4,7 @@ namespace Tourze\QQConnectOAuth2Bundle\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 use Tourze\DoctrineTimestampBundle\Traits\TimestampableAware;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 
@@ -19,18 +20,22 @@ class QQOAuth2Config implements \Stringable
     private ?int $id = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, options: ['comment' => 'QQ应用ID'])]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 255)]
     private string $appId = '';
 
     #[ORM\Column(type: Types::STRING, length: 255, options: ['comment' => 'QQ应用密钥'])]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 255)]
     private string $appSecret = '';
 
-
     #[ORM\Column(type: Types::TEXT, nullable: true, options: ['comment' => '授权范围'])]
+    #[Assert\Length(max: 65535)]
     private ?string $scope = null;
 
     #[ORM\Column(type: Types::BOOLEAN, options: ['comment' => '是否启用'])]
+    #[Assert\Type(type: 'bool')]
     private bool $valid = true;
-
 
     public function __toString(): string
     {
@@ -47,10 +52,9 @@ class QQOAuth2Config implements \Stringable
         return $this->appId;
     }
 
-    public function setAppId(string $appId): self
+    public function setAppId(string $appId): void
     {
         $this->appId = $appId;
-        return $this;
     }
 
     public function getAppSecret(): string
@@ -58,22 +62,19 @@ class QQOAuth2Config implements \Stringable
         return $this->appSecret;
     }
 
-    public function setAppSecret(string $appSecret): self
+    public function setAppSecret(string $appSecret): void
     {
         $this->appSecret = $appSecret;
-        return $this;
     }
-
 
     public function getScope(): ?string
     {
         return $this->scope;
     }
 
-    public function setScope(?string $scope): self
+    public function setScope(?string $scope): void
     {
         $this->scope = $scope;
-        return $this;
     }
 
     public function isValid(): bool
@@ -81,10 +82,8 @@ class QQOAuth2Config implements \Stringable
         return $this->valid;
     }
 
-    public function setValid(bool $valid): self
+    public function setValid(bool $valid): void
     {
         $this->valid = $valid;
-        return $this;
     }
-
 }

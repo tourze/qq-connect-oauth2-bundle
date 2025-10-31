@@ -31,12 +31,13 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
         $collection = new RouteCollection();
         $collection->addCollection($this->controllerLoader->load(QQOAuth2LoginController::class));
         $collection->addCollection($this->controllerLoader->load(QQOAuth2CallbackController::class));
+
         return $collection;
     }
 
     public function supports(mixed $resource, ?string $type = null): bool
     {
-        return $type === 'attribute';
+        return 'attribute' === $type;
     }
 
     public function getType(): string
@@ -44,4 +45,3 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
         return 'attribute';
     }
 }
-

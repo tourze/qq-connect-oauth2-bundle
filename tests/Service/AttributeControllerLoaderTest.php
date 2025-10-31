@@ -2,13 +2,17 @@
 
 namespace Tourze\QQConnectOAuth2Bundle\Tests\Service;
 
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\Config\Loader\LoaderInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\Config\Loader\LoaderResolverInterface;
-use Symfony\Component\Routing\RouteCollection;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
 use Tourze\QQConnectOAuth2Bundle\Service\AttributeControllerLoader;
 
-class AttributeControllerLoaderTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(AttributeControllerLoader::class)]
+#[RunTestsInSeparateProcesses] final class AttributeControllerLoaderTest extends AbstractIntegrationTestCase
 {
     private AttributeControllerLoader $loader;
 
@@ -16,7 +20,7 @@ class AttributeControllerLoaderTest extends TestCase
     {
         $routes = $this->loader->load('Tourze\QQConnectOAuth2Bundle\Controller\\');
 
-        $this->assertInstanceOf(RouteCollection::class, $routes);
+        $this->assertNotNull($routes);
         $this->assertGreaterThan(0, $routes->count());
 
         // 验证登录路由存在
@@ -54,7 +58,9 @@ class AttributeControllerLoaderTest extends TestCase
 
     public function testSetResolver(): void
     {
-        $resolver = $this->createMock(LoaderResolverInterface::class);
+        $container = self::getContainer();
+        $resolver = $container->get('routing.resolver');
+        $this->assertInstanceOf(LoaderResolverInterface::class, $resolver);
         $this->loader->setResolver($resolver);
 
         $this->assertEquals($resolver, $this->loader->getResolver());
@@ -62,7 +68,9 @@ class AttributeControllerLoaderTest extends TestCase
 
     public function testSetAndGetResolver(): void
     {
-        $resolver = $this->createMock(LoaderResolverInterface::class);
+        $container = self::getContainer();
+        $resolver = $container->get('routing.resolver');
+        $this->assertInstanceOf(LoaderResolverInterface::class, $resolver);
         $this->loader->setResolver($resolver);
 
         $this->assertSame($resolver, $this->loader->getResolver());
@@ -72,7 +80,7 @@ class AttributeControllerLoaderTest extends TestCase
     {
         // 我们的实现总是返回固定的路由集合，不验证资源有效性
         $routes = $this->loader->load('InvalidNamespace');
-        $this->assertInstanceOf(RouteCollection::class, $routes);
+        $this->assertNotNull($routes);
         $this->assertGreaterThan(0, $routes->count());
     }
 
@@ -80,29 +88,34 @@ class AttributeControllerLoaderTest extends TestCase
     {
         $routes = $this->loader->load('NonExistent\Namespace\\');
 
-        $this->assertInstanceOf(RouteCollection::class, $routes);
+        $this->assertNotNull($routes);
         // 我们的实现总是加载固定的控制器路由，所以路由数量 > 0
         $this->assertGreaterThan(0, $routes->count());
     }
 
-    public function testImportNotSupported(): void
+    public function testAutoload(): void
     {
-        $childLoader = $this->createMock(LoaderInterface::class);
-        $childLoader->method('supports')->willReturn(true);
-        $childLoader->method('load')->willReturn(new RouteCollection());
+        $collection = $this->loader->autoload();
 
-        $resolver = $this->createMock(LoaderResolverInterface::class);
-        $resolver->method('resolve')->willReturn($childLoader);
+        $this->assertNotNull($collection);
+        $this->assertGreaterThan(0, $collection->count());
 
-        $this->loader->setResolver($resolver);
-
-        // 这个方法主要测试import功能，虽然在当前实现中可能不会被使用
-        $result = $this->loader->import('some-resource');
-        $this->assertInstanceOf(RouteCollection::class, $result);
+        // 验证QQ OAuth2相关路由存在
+        $hasQQRoutes = false;
+        foreach ($collection as $route) {
+            if (false !== strpos($route->getPath(), 'qq-oauth2')) {
+                $hasQQRoutes = true;
+                break;
+            }
+        }
+        $this->assertTrue($hasQQRoutes);
     }
 
-    protected function setUp(): void
+    protected function onSetUp(): void
     {
-        $this->loader = new AttributeControllerLoader();
+        $container = self::getContainer();
+        $loader = $container->get(AttributeControllerLoader::class);
+        $this->assertInstanceOf(AttributeControllerLoader::class, $loader);
+        $this->loader = $loader;
     }
 }

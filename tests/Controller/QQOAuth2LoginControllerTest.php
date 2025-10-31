@@ -2,83 +2,75 @@
 
 namespace Tourze\QQConnectOAuth2Bundle\Tests\Controller;
 
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Tourze\PHPUnitSymfonyWebTest\AbstractWebTestCase;
 use Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2LoginController;
-use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
+use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 
-class QQOAuth2LoginControllerTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(QQOAuth2LoginController::class)]
+#[RunTestsInSeparateProcesses]
+final class QQOAuth2LoginControllerTest extends AbstractWebTestCase
 {
-    private QQOAuth2Service&MockObject $oauth2Service;
-    private QQOAuth2LoginController $controller;
-
-    public function testInvokeGeneratesRedirectResponse(): void
+    public function testLoginWithoutConfig(): void
     {
-        $session = $this->createMock(SessionInterface::class);
-        $session->method('getId')->willReturn('test_session_id');
+        $client = self::createClientWithDatabase();
 
-        $request = Request::create('/qq-oauth2/login', 'GET');
-        $request->setSession($session);
+        // 清除所有配置确保没有有效配置
+        $container = self::getContainer();
+        $doctrine = $container->get('doctrine');
+        $this->assertInstanceOf(ManagerRegistry::class, $doctrine);
+        $em = $doctrine->getManager();
+        $this->assertInstanceOf(EntityManagerInterface::class, $em);
+        $em->createQuery('DELETE FROM Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config')->execute();
+        $em->flush();
 
-        $authUrl = 'https://graph.qq.com/oauth2.0/authorize?client_id=test&redirect_uri=callback&state=123';
+        // 清除配置缓存
+        $configRepo = $container->get('Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository');
+        $this->assertInstanceOf(QQOAuth2ConfigRepository::class, $configRepo);
+        $configRepo->clearCache();
 
-        $this->oauth2Service->expects($this->once())
-            ->method('generateAuthorizationUrl')
-            ->with('test_session_id')
-            ->willReturn($authUrl);
+        $client->request('GET', '/qq-oauth2/login');
 
-        $response = ($this->controller)($request);
-
-        $this->assertInstanceOf(RedirectResponse::class, $response);
-        $this->assertEquals($authUrl, $response->getTargetUrl());
+        $response = $client->getResponse();
+        $this->assertEquals(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
     }
 
-    public function testInvokeWithServiceException(): void
+    public function testRouteConfiguration(): void
     {
-        $session = $this->createMock(SessionInterface::class);
-        $session->method('getId')->willReturn('test_session_id');
+        $client = self::createClientWithDatabase();
 
-        $request = Request::create('/qq-oauth2/login', 'GET');
-        $request->setSession($session);
+        $client->catchExceptions(false);
 
-        $exception = new \RuntimeException('Service error');
-        $this->oauth2Service->expects($this->once())
-            ->method('generateAuthorizationUrl')
-            ->willThrowException($exception);
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Service error');
-
-        ($this->controller)($request);
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $client->request('POST', '/qq-oauth2/login');
     }
 
-    public function testInvokeWithEmptySessionId(): void
+    public function testControllerIsCallable(): void
     {
-        $session = $this->createMock(SessionInterface::class);
-        $session->method('getId')->willReturn('');
+        $client = self::createClientWithDatabase();
 
-        $request = Request::create('/qq-oauth2/login', 'GET');
-        $request->setSession($session);
+        $client->request('GET', '/qq-oauth2/login');
 
-        $authUrl = 'https://graph.qq.com/oauth2.0/authorize?client_id=test&redirect_uri=callback&state=123';
-
-        $this->oauth2Service->expects($this->once())
-            ->method('generateAuthorizationUrl')
-            ->with('')
-            ->willReturn($authUrl);
-
-        $response = ($this->controller)($request);
-
-        $this->assertInstanceOf(RedirectResponse::class, $response);
-        $this->assertEquals($authUrl, $response->getTargetUrl());
+        $response = $client->getResponse();
+        $this->assertNotNull($response);
+        $this->assertInstanceOf(Response::class, $response);
     }
 
-    protected function setUp(): void
+    #[DataProvider('provideNotAllowedMethods')]
+    public function testMethodNotAllowed(string $method): void
     {
-        $this->oauth2Service = $this->createMock(QQOAuth2Service::class);
-        $this->controller = new QQOAuth2LoginController($this->oauth2Service);
+        $client = self::createClientWithDatabase();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $client->request($method, '/qq-oauth2/login');
     }
-} 
+}

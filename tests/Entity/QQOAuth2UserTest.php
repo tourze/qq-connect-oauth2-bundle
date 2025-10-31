@@ -2,16 +2,22 @@
 
 namespace Tourze\QQConnectOAuth2Bundle\Tests\Entity;
 
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use Tourze\PHPUnitDoctrineEntity\AbstractEntityTestCase;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
 
-class QQOAuth2UserTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(QQOAuth2User::class)]
+final class QQOAuth2UserTest extends AbstractEntityTestCase
 {
     public function testDefaultValues(): void
     {
         $config = $this->createMockConfig();
-        $user = new QQOAuth2User('test_openid', 'test_token', 7200, $config);
+        $user = $this->createMockUser('test_openid', 'test_token', 7200, $config);
 
         $this->assertNull($user->getId());
         $this->assertEquals('test_openid', $user->getOpenid());
@@ -27,7 +33,7 @@ class QQOAuth2UserTest extends TestCase
         $this->assertNull($user->getUserReference());
         $this->assertNull($user->getRawData());
         $this->assertSame($config, $user->getConfig());
-        $this->assertInstanceOf(\DateTimeImmutable::class, $user->getTokenUpdateTime());
+        $this->assertNotNull($user->getTokenUpdateTime());
         $this->assertNull($user->getCreateTime());
         $this->assertNull($user->getUpdateTime());
     }
@@ -35,26 +41,38 @@ class QQOAuth2UserTest extends TestCase
     private function createMockConfig(): QQOAuth2Config
     {
         $config = new QQOAuth2Config();
-        $config->setAppId('test_app_id')
-            ->setAppSecret('test_secret');
+        $config->setAppId('test_app_id');
+        $config->setAppSecret('test_secret');
+
         return $config;
+    }
+
+    private function createMockUser(string $openid, string $accessToken, int $expiresIn, QQOAuth2Config $config): QQOAuth2User
+    {
+        $user = new QQOAuth2User();
+        $user->setOpenid($openid);
+        $user->setAccessToken($accessToken);
+        $user->setExpiresIn($expiresIn);
+        $user->setConfig($config);
+
+        return $user;
     }
 
     public function testSettersAndGetters(): void
     {
         $config = $this->createMockConfig();
-        $user = new QQOAuth2User('test_openid', 'test_token', 7200, $config);
-        
-        $user->setUnionid('test_unionid')
-            ->setNickname('Test User')
-            ->setAvatar('https://example.com/avatar.jpg')
-            ->setGender('male')
-            ->setProvince('Beijing')
-            ->setCity('Beijing')
-            ->setRefreshToken('refresh_token')
-            ->setUserReference('user_123')
-            ->setRawData(['key' => 'value']);
-        
+        $user = $this->createMockUser('test_openid', 'test_token', 7200, $config);
+
+        $user->setUnionid('test_unionid');
+        $user->setNickname('Test User');
+        $user->setAvatar('https://example.com/avatar.jpg');
+        $user->setGender('male');
+        $user->setProvince('Beijing');
+        $user->setCity('Beijing');
+        $user->setRefreshToken('refresh_token');
+        $user->setUserReference('user_123');
+        $user->setRawData(['key' => 'value']);
+
         $this->assertEquals('test_unionid', $user->getUnionid());
         $this->assertEquals('Test User', $user->getNickname());
         $this->assertEquals('https://example.com/avatar.jpg', $user->getAvatar());
@@ -69,24 +87,26 @@ class QQOAuth2UserTest extends TestCase
     public function testTokenExpiration(): void
     {
         $config = $this->createMockConfig();
-        $user = new QQOAuth2User('test_openid', 'test_token', 7200, $config);
-        
+        $user = $this->createMockUser('test_openid', 'test_token', 7200, $config);
+
         $this->assertFalse($user->isTokenExpired());
-        
+
         // Create a user with an expired token
-        $expiredUser = new QQOAuth2User('expired_openid', 'expired_token', -1, $config);
+        $expiredUser = $this->createMockUser('expired_openid', 'expired_token', 3600, $config);
+        $expiredUser->setTokenUpdateTime(new \DateTimeImmutable('-2 hours'));
         $this->assertTrue($expiredUser->isTokenExpired());
     }
 
     public function testUpdateToken(): void
     {
         $config = $this->createMockConfig();
-        $user = new QQOAuth2User('test_openid', 'old_token', 3600, $config);
+        $user = $this->createMockUser('test_openid', 'old_token', 3600, $config);
         $originalTokenUpdateTime = $user->getTokenUpdateTime();
-        
+
         sleep(1);
-        $user->setAccessToken('new_token')->setExpiresIn(7200);
-        
+        $user->setAccessToken('new_token');
+        $user->setExpiresIn(7200);
+
         $this->assertEquals('new_token', $user->getAccessToken());
         $this->assertEquals(7200, $user->getExpiresIn());
         $this->assertNotEquals($originalTokenUpdateTime, $user->getTokenUpdateTime());
@@ -95,23 +115,50 @@ class QQOAuth2UserTest extends TestCase
     public function testTimestampableAware(): void
     {
         $config = $this->createMockConfig();
-        $user = new QQOAuth2User('test_openid', 'test_token', 7200, $config);
-        
+        $user = $this->createMockUser('test_openid', 'test_token', 7200, $config);
+
         // Test that timestamps start as null
         $this->assertNull($user->getCreateTime());
         $this->assertNull($user->getUpdateTime());
-        
+
         // Test setting timestamps
         $now = new \DateTimeImmutable();
         $user->setCreateTime($now);
         $user->setUpdateTime($now);
-        
-        $this->assertSame($now, $user->getCreateTime());
-        $this->assertSame($now, $user->getUpdateTime());
-        
+
+        $this->assertEquals($now, $user->getCreateTime());
+        $this->assertEquals($now, $user->getUpdateTime());
+
         // Test retrieve timestamp array
         $timestamps = $user->retrieveTimestampArray();
         $this->assertEquals($now->format('Y-m-d H:i:s'), $timestamps['createTime']);
         $this->assertEquals($now->format('Y-m-d H:i:s'), $timestamps['updateTime']);
+    }
+
+    protected function createEntity(): object
+    {
+        $config = new QQOAuth2Config();
+        $config->setAppId('test_app_id');
+        $config->setAppSecret('test_secret');
+
+        return $this->createMockUser('test_openid', 'test_token', 7200, $config);
+    }
+
+    /**
+     * @return iterable<string, array{0: string, 1: mixed}>
+     */
+    public static function propertiesProvider(): iterable
+    {
+        yield 'unionid' => ['unionid', 'test_unionid'];
+        yield 'nickname' => ['nickname', 'Test User'];
+        yield 'avatar' => ['avatar', 'https://example.com/avatar.jpg'];
+        yield 'gender' => ['gender', 'male'];
+        yield 'province' => ['province', 'Beijing'];
+        yield 'city' => ['city', 'Beijing'];
+        yield 'refreshToken' => ['refreshToken', 'refresh_token'];
+        yield 'userReference' => ['userReference', 'user_123'];
+        yield 'rawData' => ['rawData', ['key' => 'value']];
+        yield 'accessToken' => ['accessToken', 'new_token'];
+        yield 'expiresIn' => ['expiresIn', 3600];
     }
 }

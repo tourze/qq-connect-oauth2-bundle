@@ -16,8 +16,9 @@ use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 class QQOAuth2CleanupCommand extends Command
 {
     protected const NAME = 'qq-oauth2:cleanup';
+
     public function __construct(
-        private QQOAuth2Service $oauth2Service
+        private QQOAuth2Service $oauth2Service,
     ) {
         parent::__construct();
     }
@@ -28,13 +29,13 @@ class QQOAuth2CleanupCommand extends Command
 
         try {
             $count = $this->oauth2Service->cleanupExpiredStates();
-            
+
             $io->success(sprintf('Successfully cleaned up %d expired states', $count));
-            
+
             return Command::SUCCESS;
         } catch (\Exception $e) {
             $io->error(sprintf('Failed to clean up states: %s', $e->getMessage()));
-            
+
             return Command::FAILURE;
         }
     }

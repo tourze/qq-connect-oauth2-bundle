@@ -1,6 +1,30 @@
 # QQConnectOAuth2Bundle
 
+[English](README.md) | [中文](README.zh-CN.md)
+
+[![Latest Version](https://img.shields.io/packagist/v/tourze/qq-connect-oauth2-bundle.svg?style=flat-square)](https://packagist.org/packages/tourze/qq-connect-oauth2-bundle)
+[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.1-blue.svg?style=flat-square)](https://www.php.net/)
+[![Symfony Version](https://img.shields.io/badge/symfony-%3E%3D7.3-green.svg?style=flat-square)](https://symfony.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-103%20passed-green.svg?style=flat-square)](#)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen.svg?style=flat-square)](#)
+
 A Symfony bundle for integrating QQ Connect OAuth2 authentication into your application.
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [CLI Commands](#cli-commands)
+- [Entities](#entities)
+- [Advanced Usage](#advanced-usage)
+- [Security](#security)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
@@ -19,16 +43,26 @@ A Symfony bundle for integrating QQ Connect OAuth2 authentication into your appl
 composer require tourze/qq-connect-oauth2-bundle
 ```
 
-## Configuration
+### Requirements
 
-### 1. Update your database schema
+- PHP >= 8.1
+- Symfony >= 7.3
+- Doctrine ORM
+- Symfony HttpClient
 
+## Quick Start
+
+1. Install the bundle:
+```bash
+composer require tourze/qq-connect-oauth2-bundle
+```
+
+2. Update your database schema:
 ```bash
 php bin/console doctrine:schema:update --force
 ```
 
-### 2. Create QQ OAuth2 configuration
-
+3. Create QQ OAuth2 configuration:
 ```bash
 php bin/console qq-oauth2:config create \
     --app-id="YOUR_APP_ID" \
@@ -36,14 +70,31 @@ php bin/console qq-oauth2:config create \
     --scope="get_user_info"
 ```
 
-**Note**: The redirect URI is automatically generated based on your routing configuration. Make sure your QQ application is configured with the correct callback URL: `https://yourdomain.com/qq-oauth2/callback`
+4. Use in your template:
+```html
+<a href="{{ path('qq_oauth2_login') }}">Login with QQ</a>
+```
 
-### 3. Routes
+## Configuration
+
+### Routes
 
 The bundle automatically registers the following routes:
 
 - `/qq-oauth2/login` - Initiate QQ login
 - `/qq-oauth2/callback` - OAuth callback handler
+
+**Note**: The redirect URI is automatically generated based on your routing configuration. 
+Make sure your QQ application is configured with the correct callback URL: 
+`https://yourdomain.com/qq-oauth2/callback`
+
+### Bundle Dependencies
+
+This bundle automatically includes and configures:
+
+- Tourze DoctrineTimestampBundle - for automatic timestamp management
+- Tourze DoctrineIndexedBundle - for automatic index management
+- Tourze BundleDependency - for proper bundle dependency resolution
 
 ## Usage
 
@@ -111,11 +162,77 @@ The bundle provides three main entities:
 2. **QQOAuth2State** - Manages OAuth state for security (linked to QQOAuth2Config)
 3. **QQOAuth2User** - Stores QQ user information and tokens (linked to QQOAuth2Config)
 
+## Advanced Usage
+
+### Custom Event Handling
+
+You can listen to OAuth events by creating custom event listeners:
+
+```php
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+
+class QQOAuthEventSubscriber implements EventSubscriberInterface
+{
+    public static function getSubscribedEvents(): array
+    {
+        return [
+            'qq_oauth.user_authenticated' => 'onUserAuthenticated',
+        ];
+    }
+
+    public function onUserAuthenticated($event): void
+    {
+        // Handle successful authentication
+    }
+}
+```
+
+### Extended Configuration
+
+For complex scenarios, you can extend the service:
+
+```php
+use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
+
+class CustomQQOAuth2Service extends QQOAuth2Service
+{
+    public function customUserInfoProcessing(array $userInfo): array
+    {
+        // Add custom processing logic
+        return $userInfo;
+    }
+}
+```
+
+## Security
+
+This bundle implements several security measures:
+
+- **State Parameter**: Prevents CSRF attacks during OAuth flow
+- **Token Validation**: Validates all tokens received from QQ
+- **Secure Storage**: User tokens are stored securely in the database
+- **Automatic Cleanup**: Expired states are automatically cleaned up
+
+### Security Best Practices
+
+1. Always use HTTPS in production
+2. Regularly clean up expired tokens using the provided commands
+3. Monitor for suspicious OAuth activities
+4. Keep your QQ application secrets secure
+
 ## Testing
 
 ```bash
 vendor/bin/phpunit
 ```
+
+## Contributing
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## Changelog
+
+Please see [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## License
 

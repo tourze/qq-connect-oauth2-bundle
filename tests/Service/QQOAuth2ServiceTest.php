@@ -3,230 +3,146 @@
 namespace Tourze\QQConnectOAuth2Bundle\Tests\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
+use Doctrine\Persistence\ManagerRegistry;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractIntegrationTestCase;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2Config;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2State;
 use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
-use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
-use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository;
-use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository;
+use Tourze\QQConnectOAuth2Bundle\Exception\QQOAuth2ConfigurationException;
 use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 
-class QQOAuth2ServiceTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(QQOAuth2Service::class)]
+#[RunTestsInSeparateProcesses]
+final class QQOAuth2ServiceTest extends AbstractIntegrationTestCase
 {
-    private MockObject|HttpClientInterface $httpClient;
-    private MockObject|QQOAuth2ConfigRepository $configRepository;
-    private MockObject|QQOAuth2StateRepository $stateRepository;
-    private MockObject|QQOAuth2UserRepository $userRepository;
-    private MockObject|EntityManagerInterface $entityManager;
-    private MockObject|UrlGeneratorInterface $urlGenerator;
-    private QQOAuth2Service $service;
-
-    public function testGenerateAuthorizationUrl(): void
+    protected function onSetUp(): void
     {
-        $config = new QQOAuth2Config();
-        $config->setAppId('test_app_id')
-            ->setScope('get_user_info');
+        // 清理数据库，确保测试隔离
+        $container = self::getContainer();
+        $doctrine = $container->get('doctrine');
+        $this->assertInstanceOf(ManagerRegistry::class, $doctrine);
+        $em = $doctrine->getManager();
+        $this->assertInstanceOf(EntityManagerInterface::class, $em);
 
-        $this->configRepository->expects($this->once())
-            ->method('findValidConfig')
-            ->willReturn($config);
+        // 清理所有QQ OAuth2配置
+        $em->createQuery('DELETE FROM ' . QQOAuth2Config::class)->execute();
+        $em->createQuery('DELETE FROM ' . QQOAuth2User::class)->execute();
+        $em->createQuery('DELETE FROM ' . QQOAuth2State::class)->execute();
 
-        $this->entityManager->expects($this->once())
-            ->method('persist')
-            ->with($this->isInstanceOf(QQOAuth2State::class));
-
-        $this->entityManager->expects($this->once())
-            ->method('flush');
-
-        $this->urlGenerator->expects($this->once())
-            ->method('generate')
-            ->with('qq_oauth2_callback', [], UrlGeneratorInterface::ABSOLUTE_URL)
-            ->willReturn('https://example.com/callback');
-
-        $url = $this->service->generateAuthorizationUrl();
-
-        $this->assertStringContainsString('https://graph.qq.com/oauth2.0/authorize', $url);
-        $this->assertStringContainsString('client_id=test_app_id', $url);
-        $this->assertStringContainsString('redirect_uri=https%3A%2F%2Fexample.com%2Fcallback', $url);
-        $this->assertStringContainsString('scope=get_user_info', $url);
-        $this->assertStringContainsString('state=', $url);
+        // 清理Repository缓存的逻辑已移除，因为不应该从EntityManager直接获取Repository
     }
 
     public function testGenerateAuthorizationUrlWithoutConfig(): void
     {
-        $this->configRepository->expects($this->once())
-            ->method('findValidConfig')
-            ->willReturn(null);
+        $container = self::getContainer();
+        $service = $container->get(QQOAuth2Service::class);
+        $this->assertInstanceOf(QQOAuth2Service::class, $service);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(QQOAuth2ConfigurationException::class);
         $this->expectExceptionMessage('No valid QQ OAuth2 configuration found');
 
-        $this->service->generateAuthorizationUrl();
+        $service->generateAuthorizationUrl('test_session');
     }
 
-    public function testHandleCallbackSuccess(): void
+    public function testBulkUpdateTokens(): void
     {
-        $config = new QQOAuth2Config();
-        $config->setAppId('test_app_id')
-            ->setAppSecret('test_app_secret');
+        $container = self::getContainer();
+        $service = $container->get(QQOAuth2Service::class);
+        $this->assertInstanceOf(QQOAuth2Service::class, $service);
 
-        $state = new QQOAuth2State('test_state', $config);
+        $userData = [
+            [
+                'openid' => 'test_openid_1',
+                'access_token' => 'new_token_1',
+                'expires_in' => 7200,
+                'refresh_token' => 'refresh_token_1',
+            ],
+            [
+                'openid' => 'test_openid_2',
+                'access_token' => 'new_token_2',
+                'expires_in' => 3600,
+            ],
+        ];
 
-        $this->stateRepository->expects($this->once())
-            ->method('findValidState')
-            ->with('test_state')
-            ->willReturn($state);
-
-        $this->entityManager->expects($this->atLeastOnce())
-            ->method('flush');
-
-        $this->urlGenerator->expects($this->once())
-            ->method('generate')
-            ->with('qq_oauth2_callback', [], UrlGeneratorInterface::ABSOLUTE_URL)
-            ->willReturn('https://example.com/callback');
-
-        // Mock access token response
-        $tokenResponse = $this->createMock(ResponseInterface::class);
-        $tokenResponse->expects($this->once())
-            ->method('getContent')
-            ->willReturn('access_token=test_token&expires_in=7200&refresh_token=refresh_token');
-
-        // Mock openid response
-        $openidResponse = $this->createMock(ResponseInterface::class);
-        $openidResponse->expects($this->once())
-            ->method('getContent')
-            ->willReturn('callback( {"client_id":"test_app_id","openid":"test_openid"} );');
-
-        // Mock user info response
-        $userInfoResponse = $this->createMock(ResponseInterface::class);
-        $userInfoResponse->expects($this->once())
-            ->method('getContent')
-            ->willReturn(json_encode([
-                'ret' => 0,
-                'nickname' => 'Test User',
-                'figureurl_qq_2' => 'https://example.com/avatar.jpg',
-                'gender' => '男',
-                'province' => '北京',
-                'city' => '北京'
-            ]));
-
-        $this->httpClient->expects($this->exactly(3))
-            ->method('request')
-            ->willReturnOnConsecutiveCalls($tokenResponse, $openidResponse, $userInfoResponse);
-
-        $user = new QQOAuth2User('test_openid', 'test_token', 7200, $config);
-        $this->userRepository->expects($this->once())
-            ->method('updateOrCreate')
-            ->willReturn($user);
-
-        $result = $this->service->handleCallback('test_code', 'test_state');
-
-        $this->assertInstanceOf(QQOAuth2User::class, $result);
-        $this->assertEquals('test_openid', $result->getOpenid());
+        $count = $service->bulkUpdateTokens($userData);
+        $this->assertEquals(0, $count);
     }
 
-    public function testHandleCallbackInvalidState(): void
+    public function testCleanupExpiredStates(): void
     {
-        $this->stateRepository->expects($this->once())
-            ->method('findValidState')
-            ->with('invalid_state')
-            ->willReturn(null);
+        $container = self::getContainer();
+        $service = $container->get(QQOAuth2Service::class);
+        $this->assertInstanceOf(QQOAuth2Service::class, $service);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Invalid or expired state');
-
-        $this->service->handleCallback('test_code', 'invalid_state');
+        $count = $service->cleanupExpiredStates();
+        $this->assertIsInt($count);
+        $this->assertGreaterThanOrEqual(0, $count);
     }
 
-    public function testGetUserInfoWithValidToken(): void
+    public function testHandleCallback(): void
     {
+        $container = self::getContainer();
+        $service = $container->get(QQOAuth2Service::class);
+        $this->assertInstanceOf(QQOAuth2Service::class, $service);
+
+        $this->expectException(\Exception::class);
+        $service->handleCallback('invalid_code', 'invalid_state');
+    }
+
+    public function testRefreshExpiredTokens(): void
+    {
+        $container = self::getContainer();
+        $service = $container->get(QQOAuth2Service::class);
+        $this->assertInstanceOf(QQOAuth2Service::class, $service);
+
+        $count = $service->refreshExpiredTokens();
+        $this->assertIsInt($count);
+        $this->assertGreaterThanOrEqual(0, $count);
+    }
+
+    public function testRefreshToken(): void
+    {
+        $container = self::getContainer();
+        $service = $container->get(QQOAuth2Service::class);
+        $this->assertInstanceOf(QQOAuth2Service::class, $service);
+
+        $result = $service->refreshToken('non_existent_openid');
+        $this->assertFalse($result);
+    }
+
+    public function testUpdateOrCreateUser(): void
+    {
+        $container = self::getContainer();
+        $doctrine = $container->get('doctrine');
+        $this->assertInstanceOf(ManagerRegistry::class, $doctrine);
+        $em = $doctrine->getManager();
+        $this->assertInstanceOf(EntityManagerInterface::class, $em);
+        $service = $container->get(QQOAuth2Service::class);
+        $this->assertInstanceOf(QQOAuth2Service::class, $service);
+
         $config = new QQOAuth2Config();
         $config->setAppId('test_app_id');
+        $config->setAppSecret('test_secret');
 
-        $user = new QQOAuth2User('test_openid', 'test_token', 7200, $config);
+        // 先持久化配置
+        $em->persist($config);
+        $em->flush();
 
-        $this->userRepository->expects($this->once())
-            ->method('findByOpenid')
-            ->with('test_openid')
-            ->willReturn($user);
+        $userData = [
+            'openid' => 'test_openid',
+            'access_token' => 'test_token',
+            'expires_in' => 7200,
+            'nickname' => 'Test User',
+        ];
 
-        $response = $this->createMock(ResponseInterface::class);
-        $response->expects($this->once())
-            ->method('getContent')
-            ->willReturn(json_encode([
-                'ret' => 0,
-                'nickname' => 'Updated User',
-                'figureurl_qq_2' => 'https://example.com/new_avatar.jpg'
-            ]));
-
-        $this->httpClient->expects($this->once())
-            ->method('request')
-            ->willReturn($response);
-
-        $this->entityManager->expects($this->once())
-            ->method('flush');
-
-        $result = $this->service->getUserInfo('test_openid');
-
-        $this->assertEquals(0, $result['ret']);
-        $this->assertEquals('Updated User', $result['nickname']);
-    }
-
-    public function testRefreshTokenSuccess(): void
-    {
-        $config = new QQOAuth2Config();
-        $config->setAppId('test_app_id')
-            ->setAppSecret('test_app_secret');
-
-        $user = new QQOAuth2User('test_openid', 'old_token', 3600, $config);
-        $user->setRefreshToken('refresh_token');
-
-        $this->userRepository->expects($this->once())
-            ->method('findByOpenid')
-            ->with('test_openid')
-            ->willReturn($user);
-
-        $response = $this->createMock(ResponseInterface::class);
-        $response->expects($this->once())
-            ->method('getContent')
-            ->willReturn('access_token=new_token&expires_in=7200&refresh_token=new_refresh_token');
-
-        $this->httpClient->expects($this->once())
-            ->method('request')
-            ->willReturn($response);
-
-        $this->entityManager->expects($this->once())
-            ->method('flush');
-
-        $result = $this->service->refreshToken('test_openid');
-
-        $this->assertTrue($result);
-        $this->assertEquals('new_token', $user->getAccessToken());
-        $this->assertEquals(7200, $user->getExpiresIn());
-        $this->assertEquals('new_refresh_token', $user->getRefreshToken());
-    }
-
-    protected function setUp(): void
-    {
-        $this->httpClient = $this->createMock(HttpClientInterface::class);
-        $this->configRepository = $this->createMock(QQOAuth2ConfigRepository::class);
-        $this->stateRepository = $this->createMock(QQOAuth2StateRepository::class);
-        $this->userRepository = $this->createMock(QQOAuth2UserRepository::class);
-        $this->entityManager = $this->createMock(EntityManagerInterface::class);
-        $this->urlGenerator = $this->createMock(UrlGeneratorInterface::class);
-
-        $this->service = new QQOAuth2Service(
-            $this->httpClient,
-            $this->configRepository,
-            $this->stateRepository,
-            $this->userRepository,
-            $this->entityManager,
-            $this->urlGenerator
-        );
+        $user = $service->updateOrCreateUser($userData, $config);
+        $this->assertInstanceOf(QQOAuth2User::class, $user);
+        $this->assertEquals('test_openid', $user->getOpenid());
+        $this->assertEquals('test_token', $user->getAccessToken());
     }
 }

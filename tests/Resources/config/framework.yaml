@@ -1,0 +1,19 @@
+framework:
+    secret: 'test_secret'
+    test: true
+    router:
+        utf8: true
+        resource: './routes.yaml'
+
+services:
+    # Define a test router service for UrlGeneratorInterface
+    router.test:
+        class: Symfony\Component\Routing\Router
+        arguments:
+            - '@routing.loader'
+            - './routes.yaml'
+            - { cache_dir: null, debug: true }
+        public: true
+        
+    Symfony\Component\Routing\Generator\UrlGeneratorInterface:
+        alias: router.test

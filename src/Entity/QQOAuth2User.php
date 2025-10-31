@@ -4,6 +4,7 @@ namespace Tourze\QQConnectOAuth2Bundle\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
 use Tourze\DoctrineTimestampBundle\Traits\TimestampableAware;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository;
@@ -19,58 +20,74 @@ class QQOAuth2User implements \Stringable
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => 'ID'])]
     private ?int $id = null;
 
-    #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => 'QQ OpenID'])]
-    #[IndexColumn]
-    private string $openid;
-
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => 'QQ UnionID'])]
+    #[Assert\Length(max: 255)]
     private ?string $unionid = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => '昵称'])]
+    #[Assert\Length(max: 255)]
     private ?string $nickname = null;
 
     #[ORM\Column(type: Types::STRING, length: 500, nullable: true, options: ['comment' => '头像地址'])]
+    #[Assert\Length(max: 500)]
+    #[Assert\Url(message: '头像地址必须是有效的URL')]
     private ?string $avatar = null;
 
     #[ORM\Column(type: Types::STRING, length: 10, nullable: true, options: ['comment' => '性别'])]
+    #[Assert\Length(max: 10)]
     private ?string $gender = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => '省份'])]
+    #[Assert\Length(max: 255)]
     private ?string $province = null;
 
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => '城市'])]
+    #[Assert\Length(max: 255)]
     private ?string $city = null;
 
-    #[ORM\Column(type: Types::TEXT, options: ['comment' => '访问令牌'])]
-    private string $accessToken;
-
     #[ORM\Column(type: Types::TEXT, nullable: true, options: ['comment' => '刷新令牌'])]
+    #[Assert\Length(max: 65535)]
     private ?string $refreshToken = null;
 
-    #[ORM\Column(type: Types::INTEGER, options: ['comment' => '过期时间（秒）'])]
-    private int $expiresIn;
-
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '令牌更新时间'])]
+    #[Assert\NotNull]
+    #[Assert\Type(type: \DateTimeImmutable::class)]
     private \DateTimeImmutable $tokenUpdateTime;
 
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => '关联用户引用'])]
     #[IndexColumn]
+    #[Assert\Length(max: 255)]
     private ?string $userReference = null;
 
+    /**
+     * @var array<int|string, mixed>|null
+     */
     #[ORM\Column(type: Types::JSON, nullable: true, options: ['comment' => '原始数据'])]
+    #[Assert\Type(type: 'array')]
     private ?array $rawData = null;
 
-    #[ORM\ManyToOne(targetEntity: QQOAuth2Config::class)]
+    #[ORM\Column(type: Types::TEXT, options: ['comment' => '访问令牌'])]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 65535)]
+    private string $accessToken;
+
+    #[ORM\Column(type: Types::INTEGER, options: ['comment' => '过期时间（秒）'])]
+    #[Assert\Positive]
+    private int $expiresIn;
+
+    #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => 'QQ OpenID'])]
+    #[IndexColumn]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 255)]
+    private string $openid = '';
+
+    #[ORM\ManyToOne(targetEntity: QQOAuth2Config::class, cascade: ['persist'])]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    private QQOAuth2Config $config;
+    #[Assert\NotNull]
+    private ?QQOAuth2Config $config = null;
 
-
-    public function __construct(string $openid, string $accessToken, int $expiresIn, QQOAuth2Config $config)
+    public function __construct()
     {
-        $this->openid = $openid;
-        $this->accessToken = $accessToken;
-        $this->expiresIn = $expiresIn;
-        $this->config = $config;
         $this->tokenUpdateTime = new \DateTimeImmutable();
     }
 
@@ -89,15 +106,19 @@ class QQOAuth2User implements \Stringable
         return $this->openid;
     }
 
+    public function setOpenid(string $openid): void
+    {
+        $this->openid = $openid;
+    }
+
     public function getUnionid(): ?string
     {
         return $this->unionid;
     }
 
-    public function setUnionid(?string $unionid): self
+    public function setUnionid(?string $unionid): void
     {
         $this->unionid = $unionid;
-        return $this;
     }
 
     public function getNickname(): ?string
@@ -105,10 +126,9 @@ class QQOAuth2User implements \Stringable
         return $this->nickname;
     }
 
-    public function setNickname(?string $nickname): self
+    public function setNickname(?string $nickname): void
     {
         $this->nickname = $nickname;
-        return $this;
     }
 
     public function getAvatar(): ?string
@@ -116,10 +136,9 @@ class QQOAuth2User implements \Stringable
         return $this->avatar;
     }
 
-    public function setAvatar(?string $avatar): self
+    public function setAvatar(?string $avatar): void
     {
         $this->avatar = $avatar;
-        return $this;
     }
 
     public function getGender(): ?string
@@ -127,10 +146,9 @@ class QQOAuth2User implements \Stringable
         return $this->gender;
     }
 
-    public function setGender(?string $gender): self
+    public function setGender(?string $gender): void
     {
         $this->gender = $gender;
-        return $this;
     }
 
     public function getProvince(): ?string
@@ -138,10 +156,9 @@ class QQOAuth2User implements \Stringable
         return $this->province;
     }
 
-    public function setProvince(?string $province): self
+    public function setProvince(?string $province): void
     {
         $this->province = $province;
-        return $this;
     }
 
     public function getCity(): ?string
@@ -149,10 +166,9 @@ class QQOAuth2User implements \Stringable
         return $this->city;
     }
 
-    public function setCity(?string $city): self
+    public function setCity(?string $city): void
     {
         $this->city = $city;
-        return $this;
     }
 
     public function getAccessToken(): string
@@ -160,11 +176,17 @@ class QQOAuth2User implements \Stringable
         return $this->accessToken;
     }
 
-    public function setAccessToken(string $accessToken): self
+    public function setAccessToken(string $accessToken): void
     {
         $this->accessToken = $accessToken;
         $this->tokenUpdateTime = new \DateTimeImmutable();
-        return $this;
+    }
+
+    public function updateToken(string $accessToken, int $expiresIn): void
+    {
+        $this->accessToken = $accessToken;
+        $this->expiresIn = $expiresIn;
+        $this->tokenUpdateTime = new \DateTimeImmutable();
     }
 
     public function getRefreshToken(): ?string
@@ -172,10 +194,9 @@ class QQOAuth2User implements \Stringable
         return $this->refreshToken;
     }
 
-    public function setRefreshToken(?string $refreshToken): self
+    public function setRefreshToken(?string $refreshToken): void
     {
         $this->refreshToken = $refreshToken;
-        return $this;
     }
 
     public function getExpiresIn(): int
@@ -183,10 +204,9 @@ class QQOAuth2User implements \Stringable
         return $this->expiresIn;
     }
 
-    public function setExpiresIn(int $expiresIn): self
+    public function setExpiresIn(int $expiresIn): void
     {
         $this->expiresIn = $expiresIn;
-        return $this;
     }
 
     public function getTokenUpdateTime(): \DateTimeImmutable
@@ -194,10 +214,9 @@ class QQOAuth2User implements \Stringable
         return $this->tokenUpdateTime;
     }
 
-    public function setTokenUpdateTime(\DateTimeInterface $tokenUpdateTime): self
+    public function setTokenUpdateTime(\DateTimeInterface $tokenUpdateTime): void
     {
         $this->tokenUpdateTime = $tokenUpdateTime instanceof \DateTimeImmutable ? $tokenUpdateTime : \DateTimeImmutable::createFromInterface($tokenUpdateTime);
-        return $this;
     }
 
     public function getUserReference(): ?string
@@ -205,38 +224,41 @@ class QQOAuth2User implements \Stringable
         return $this->userReference;
     }
 
-    public function setUserReference(?string $userReference): self
+    public function setUserReference(?string $userReference): void
     {
         $this->userReference = $userReference;
-        return $this;
     }
 
+    /**
+     * @return array<int|string, mixed>|null
+     */
     public function getRawData(): ?array
     {
         return $this->rawData;
     }
 
-    public function setRawData(?array $rawData): self
+    /**
+     * @param array<int|string, mixed>|null $rawData
+     */
+    public function setRawData(?array $rawData): void
     {
         $this->rawData = $rawData;
-        return $this;
     }
-
 
     public function isTokenExpired(): bool
     {
         $expiresAt = (clone $this->tokenUpdateTime)->modify(sprintf('+%d seconds', $this->expiresIn));
-        return $expiresAt < new \DateTime();
+
+        return $expiresAt < new \DateTimeImmutable();
     }
 
-    public function getConfig(): QQOAuth2Config
+    public function getConfig(): ?QQOAuth2Config
     {
         return $this->config;
     }
 
-    public function setConfig(QQOAuth2Config $config): self
+    public function setConfig(QQOAuth2Config $config): void
     {
         $this->config = $config;
-        return $this;
     }
 }

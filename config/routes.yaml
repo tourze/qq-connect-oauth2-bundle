@@ -1,4 +1,0 @@
-# Auto-load controller routes
-_controller_auto_load:
-    resource: '../src/Controller'
-    type: attribute

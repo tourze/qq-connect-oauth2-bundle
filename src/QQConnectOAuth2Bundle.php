@@ -2,14 +2,20 @@
 
 namespace Tourze\QQConnectOAuth2Bundle;
 
-use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
+use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
-use Tourze\QQConnectOAuth2Bundle\DependencyInjection\QQConnectOAuth2Extension;
+use Tourze\BundleDependency\BundleDependencyInterface;
+use Tourze\DoctrineTimestampBundle\DoctrineTimestampBundle;
+use Tourze\RoutingAutoLoaderBundle\RoutingAutoLoaderBundle;
 
-class QQConnectOAuth2Bundle extends Bundle
+class QQConnectOAuth2Bundle extends Bundle implements BundleDependencyInterface
 {
-    public function getContainerExtension(): ?ExtensionInterface
+    public static function getBundleDependencies(): array
     {
-        return new QQConnectOAuth2Extension();
+        return [
+            DoctrineBundle::class => ['all' => true],
+            DoctrineTimestampBundle::class => ['all' => true],
+            RoutingAutoLoaderBundle::class => ['all' => true],
+        ];
     }
 }

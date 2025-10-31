@@ -4,6 +4,7 @@ namespace Tourze\QQConnectOAuth2Bundle\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 use Tourze\DoctrineIndexedBundle\Attribute\IndexColumn;
 use Tourze\DoctrineTimestampBundle\Traits\TimestampableAware;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository;
@@ -13,39 +14,47 @@ use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository;
 class QQOAuth2State implements \Stringable
 {
     use TimestampableAware;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: Types::INTEGER, options: ['comment' => 'ID'])]
     private ?int $id = null;
 
-    #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => 'OAuth状态值'])]
-    #[IndexColumn]
-    private string $state;
-
     #[ORM\Column(type: Types::STRING, length: 255, nullable: true, options: ['comment' => '会话ID'])]
+    #[Assert\Length(max: 255)]
     private ?string $sessionId = null;
 
+    /**
+     * @var array<string, mixed>|null
+     */
     #[ORM\Column(type: Types::JSON, nullable: true, options: ['comment' => '元数据'])]
+    #[Assert\Type(type: 'array')]
     private ?array $metadata = null;
-
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, options: ['comment' => '过期时间'])]
     #[IndexColumn]
+    #[Assert\NotNull]
+    #[Assert\Type(type: \DateTimeImmutable::class)]
     private \DateTimeImmutable $expireTime;
 
     #[ORM\Column(type: Types::BOOLEAN, options: ['comment' => '是否已使用'])]
+    #[Assert\Type(type: 'bool')]
     private bool $used = false;
-    
-    #[ORM\ManyToOne(targetEntity: QQOAuth2Config::class)]
-    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
-    private QQOAuth2Config $config;
 
-    public function __construct(string $state, QQOAuth2Config $config, int $ttl = 600)
+    #[ORM\Column(type: Types::STRING, length: 255, unique: true, options: ['comment' => 'OAuth状态值'])]
+    #[IndexColumn]
+    #[Assert\NotBlank]
+    #[Assert\Length(max: 255)]
+    private string $state = '';
+
+    #[ORM\ManyToOne(targetEntity: QQOAuth2Config::class, cascade: ['persist'])]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[Assert\NotNull]
+    private ?QQOAuth2Config $config = null;
+
+    public function __construct()
     {
-        $this->state = $state;
-        $this->config = $config;
-        $now = new \DateTimeImmutable();
-        $this->expireTime = $now->modify(sprintf('+%d seconds', $ttl));
+        $this->expireTime = new \DateTimeImmutable();
     }
 
     public function __toString(): string
@@ -63,38 +72,45 @@ class QQOAuth2State implements \Stringable
         return $this->state;
     }
 
+    public function setState(string $state): void
+    {
+        $this->state = $state;
+    }
+
     public function getSessionId(): ?string
     {
         return $this->sessionId;
     }
 
-    public function setSessionId(?string $sessionId): self
+    public function setSessionId(?string $sessionId): void
     {
         $this->sessionId = $sessionId;
-        return $this;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getMetadata(): ?array
     {
         return $this->metadata;
     }
 
-    public function setMetadata(?array $metadata): self
+    /**
+     * @param array<string, mixed>|null $metadata
+     */
+    public function setMetadata(?array $metadata): void
     {
         $this->metadata = $metadata;
-        return $this;
     }
-
 
     public function getExpireTime(): \DateTimeImmutable
     {
         return $this->expireTime;
     }
-    
-    public function setExpireTime(\DateTimeInterface $expireTime): self
+
+    public function setExpireTime(\DateTimeInterface $expireTime): void
     {
         $this->expireTime = $expireTime instanceof \DateTimeImmutable ? $expireTime : \DateTimeImmutable::createFromInterface($expireTime);
-        return $this;
     }
 
     public function isUsed(): bool
@@ -102,10 +118,9 @@ class QQOAuth2State implements \Stringable
         return $this->used;
     }
 
-    public function markAsUsed(): self
+    public function markAsUsed(): void
     {
         $this->used = true;
-        return $this;
     }
 
     public function isValid(): bool
@@ -115,17 +130,22 @@ class QQOAuth2State implements \Stringable
 
     public function isExpired(): bool
     {
-        return $this->expireTime < new \DateTime();
+        return $this->expireTime < new \DateTimeImmutable();
     }
-    
-    public function getConfig(): QQOAuth2Config
+
+    public function getConfig(): ?QQOAuth2Config
     {
         return $this->config;
     }
-    
-    public function setConfig(QQOAuth2Config $config): self
+
+    public function setConfig(QQOAuth2Config $config): void
     {
         $this->config = $config;
-        return $this;
+    }
+
+    public function setExpireTimeFromTtl(int $ttl): void
+    {
+        $now = new \DateTimeImmutable();
+        $this->expireTime = $now->modify(sprintf('+%d seconds', $ttl));
     }
 }

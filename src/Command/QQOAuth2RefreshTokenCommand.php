@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tourze\QQConnectOAuth2Bundle\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -9,6 +11,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
 use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository;
 use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 
@@ -22,7 +25,7 @@ class QQOAuth2RefreshTokenCommand extends Command
 
     public function __construct(
         private QQOAuth2Service $oauth2Service,
-        private QQOAuth2UserRepository $userRepository
+        private QQOAuth2UserRepository $userRepository,
     ) {
         parent::__construct();
     }
@@ -43,49 +46,60 @@ class QQOAuth2RefreshTokenCommand extends Command
         $all = $input->getOption('all');
         $dryRun = $input->getOption('dry-run');
 
-        if ($openid === null && $all === false) {
+        if (null === $openid && false === $all) {
             $io->error('You must specify either an OpenID or use --all option');
+
             return Command::FAILURE;
         }
 
-        if ($openid !== null) {
-            return $this->refreshSingleToken($openid, $io, $dryRun);
+        if (null !== $openid) {
+            $openidStr = is_string($openid) ? $openid : '';
+            $dryRunBool = is_bool($dryRun) ? $dryRun : false;
+
+            return $this->refreshSingleToken($openidStr, $io, $dryRunBool);
         }
 
-        return $this->refreshAllExpiredTokens($io, $dryRun);
+        $dryRunBool = is_bool($dryRun) ? $dryRun : false;
+
+        return $this->refreshAllExpiredTokens($io, $dryRunBool);
     }
 
     private function refreshSingleToken(string $openid, SymfonyStyle $io, bool $dryRun): int
     {
         $user = $this->userRepository->findByOpenid($openid);
-        
-        if ($user === null) {
+
+        if (null === $user) {
             $io->error(sprintf('User with OpenID %s not found', $openid));
+
             return Command::FAILURE;
         }
 
-        if ($user->getRefreshToken() === null) {
+        if (null === $user->getRefreshToken()) {
             $io->warning(sprintf('User %s does not have a refresh token', $openid));
+
             return Command::FAILURE;
         }
 
         if ($dryRun) {
             $io->info(sprintf('Would refresh token for user %s', $openid));
+
             return Command::SUCCESS;
         }
 
         try {
             $success = $this->oauth2Service->refreshToken($openid);
-            
+
             if ($success) {
                 $io->success(sprintf('Successfully refreshed token for user %s', $openid));
+
                 return Command::SUCCESS;
-            } else {
-                $io->error(sprintf('Failed to refresh token for user %s', $openid));
-                return Command::FAILURE;
             }
+            $io->error(sprintf('Failed to refresh token for user %s', $openid));
+
+            return Command::FAILURE;
         } catch (\Exception $e) {
             $io->error(sprintf('Error refreshing token: %s', $e->getMessage()));
+
             return Command::FAILURE;
         }
     }
@@ -93,49 +107,76 @@ class QQOAuth2RefreshTokenCommand extends Command
     private function refreshAllExpiredTokens(SymfonyStyle $io, bool $dryRun): int
     {
         $users = $this->userRepository->findAll();
-        $expiredCount = 0;
-        $refreshedCount = 0;
-        $failedCount = 0;
+        $stats = ['expired' => 0, 'refreshed' => 0, 'failed' => 0];
 
         foreach ($users as $user) {
-            if (!$user->isTokenExpired() || $user->getRefreshToken() === null) {
+            if (!$this->shouldRefreshUserToken($user)) {
                 continue;
             }
 
-            $expiredCount++;
+            ++$stats['expired'];
 
             if ($dryRun) {
-                $io->info(sprintf('Would refresh token for user %s', $user->getOpenid()));
+                $this->outputDryRunMessage($io, $user);
                 continue;
             }
 
-            try {
-                $success = $this->oauth2Service->refreshToken($user->getOpenid());
-                
-                if ($success) {
-                    $refreshedCount++;
-                    $io->info(sprintf('Refreshed token for user %s', $user->getOpenid()));
-                } else {
-                    $failedCount++;
-                    $io->warning(sprintf('Failed to refresh token for user %s', $user->getOpenid()));
-                }
-            } catch (\Exception $e) {
-                $failedCount++;
-                $io->error(sprintf('Error refreshing token for user %s: %s', $user->getOpenid(), $e->getMessage()));
-            }
+            $stats = $this->refreshUserToken($user, $io, $stats);
         }
 
+        $this->outputFinalResults($io, $stats, $dryRun);
+
+        return $stats['failed'] > 0 ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    private function shouldRefreshUserToken(QQOAuth2User $user): bool
+    {
+        return $user->isTokenExpired() && null !== $user->getRefreshToken();
+    }
+
+    private function outputDryRunMessage(SymfonyStyle $io, QQOAuth2User $user): void
+    {
+        $io->info(sprintf('Would refresh token for user %s', $user->getOpenid()));
+    }
+
+    /**
+     * @param array<string, int> $stats
+     * @return array<string, int>
+     */
+    private function refreshUserToken(QQOAuth2User $user, SymfonyStyle $io, array $stats): array
+    {
+        try {
+            $success = $this->oauth2Service->refreshToken($user->getOpenid());
+
+            if ($success) {
+                ++$stats['refreshed'];
+                $io->info(sprintf('Refreshed token for user %s', $user->getOpenid()));
+            } else {
+                ++$stats['failed'];
+                $io->warning(sprintf('Failed to refresh token for user %s', $user->getOpenid()));
+            }
+        } catch (\Exception $e) {
+            ++$stats['failed'];
+            $io->error(sprintf('Error refreshing token for user %s: %s', $user->getOpenid(), $e->getMessage()));
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @param array<string, int> $stats
+     */
+    private function outputFinalResults(SymfonyStyle $io, array $stats, bool $dryRun): void
+    {
         if ($dryRun) {
-            $io->success(sprintf('Would refresh %d expired tokens', $expiredCount));
+            $io->success(sprintf('Would refresh %d expired tokens', $stats['expired']));
         } else {
             $io->success(sprintf(
                 'Refreshed %d tokens successfully, %d failed out of %d expired tokens',
-                $refreshedCount,
-                $failedCount,
-                $expiredCount
+                $stats['refreshed'],
+                $stats['failed'],
+                $stats['expired']
             ));
         }
-
-        return $failedCount > 0 ? Command::FAILURE : Command::SUCCESS;
     }
 }

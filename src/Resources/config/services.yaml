@@ -1,20 +1,54 @@
 services:
-    _defaults:
-        autowire: true
-        autoconfigure: true
+  _defaults:
+    autowire: true
+    autoconfigure: true
 
-    Tourze\QQConnectOAuth2Bundle\:
-        resource: '../../*'
-        exclude:
-            - '../../{DependencyInjection,Entity,Migrations,Tests,Kernel.php}'
+  # Controllers
+  Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2CallbackController:
+    tags:
+      - controller.service_arguments
 
-    Tourze\QQConnectOAuth2Bundle\Controller\:
-        resource: '../../Controller'
-        tags: ['controller.service_arguments']
+  Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2LoginController:
+    tags:
+      - controller.service_arguments
 
-    Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service:
-        public: true
+  # Admin Controllers
+  Tourze\QQConnectOAuth2Bundle\Controller\Admin\QQOAuth2ConfigCrudController:
+    tags:
+      - controller.service_arguments
 
-    Tourze\QQConnectOAuth2Bundle\Service\AttributeControllerLoader:
-        tags:
-            - { name: 'routing.loader' }
+  Tourze\QQConnectOAuth2Bundle\Controller\Admin\QQOAuth2StateCrudController:
+    tags:
+      - controller.service_arguments
+
+  Tourze\QQConnectOAuth2Bundle\Controller\Admin\QQOAuth2UserCrudController:
+    tags:
+      - controller.service_arguments
+
+  # Services
+  Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service: ~
+  Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2ApiClient: ~
+  Tourze\QQConnectOAuth2Bundle\Service\QQApiClient: ~
+  Tourze\QQConnectOAuth2Bundle\Service\QQStateManager: ~
+  Tourze\QQConnectOAuth2Bundle\Service\QQTokenManager: ~
+  Tourze\QQConnectOAuth2Bundle\Service\QQUserManager: ~
+  Tourze\QQConnectOAuth2Bundle\Service\AttributeControllerLoader: ~
+  Tourze\QQConnectOAuth2Bundle\Service\AdminMenu: ~
+
+  # Repositories
+  Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository:
+    tags:
+      - doctrine.repository_service
+
+  Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2StateRepository:
+    tags:
+      - doctrine.repository_service
+
+  Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2UserRepository:
+    tags:
+      - doctrine.repository_service
+
+  # Commands
+  Tourze\QQConnectOAuth2Bundle\Command\QQOAuth2ConfigCommand: ~
+  Tourze\QQConnectOAuth2Bundle\Command\QQOAuth2CleanupCommand: ~
+  Tourze\QQConnectOAuth2Bundle\Command\QQOAuth2RefreshTokenCommand: ~

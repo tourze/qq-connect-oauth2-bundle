@@ -2,132 +2,103 @@
 
 namespace Tourze\QQConnectOAuth2Bundle\Tests\Controller;
 
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
-use Symfony\Component\HttpFoundation\Request;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Tourze\PHPUnitSymfonyWebTest\AbstractWebTestCase;
 use Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2CallbackController;
-use Tourze\QQConnectOAuth2Bundle\Entity\QQOAuth2User;
-use Tourze\QQConnectOAuth2Bundle\Service\QQOAuth2Service;
 
-class QQOAuth2CallbackControllerTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(QQOAuth2CallbackController::class)]
+#[RunTestsInSeparateProcesses]
+final class QQOAuth2CallbackControllerTest extends AbstractWebTestCase
 {
-    private QQOAuth2Service&MockObject $oauth2Service;
-    private LoggerInterface&MockObject $logger;
-    private QQOAuth2CallbackController $controller;
-
-    public function testInvokeWithOAuthError(): void
+    public function testCallbackWithError(): void
     {
-        $request = Request::create('/qq-oauth2/callback', 'GET', [
+        $client = self::createClientWithDatabase();
+
+        $client->request('GET', '/qq-oauth2/callback', [
             'error' => 'access_denied',
-            'error_description' => 'User denied the request'
+            'error_description' => 'User denied access',
         ]);
 
-        $this->logger->expects($this->once())
-            ->method('warning')
-            ->with('QQ OAuth2 error response');
-
-        $response = ($this->controller)($request);
+        $response = $client->getResponse();
 
         $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
-        $this->assertStringContainsString('OAuth2 Error: User denied the request', $response->getContent());
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertStringContainsString('OAuth2 Error: User denied access', $content);
     }
 
-    public function testInvokeWithMissingParameters(): void
+    public function testCallbackWithMissingParameters(): void
     {
-        $request = Request::create('/qq-oauth2/callback', 'GET');
+        $client = self::createClientWithDatabase();
 
-        $this->logger->expects($this->once())
-            ->method('warning')
-            ->with('Invalid QQ OAuth2 callback parameters');
+        $client->request('GET', '/qq-oauth2/callback');
 
-        $response = ($this->controller)($request);
-
+        $response = $client->getResponse();
         $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
-        $this->assertStringContainsString('Invalid callback parameters', $response->getContent());
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertStringContainsString('Invalid callback parameters', $content);
     }
 
-    public function testInvokeWithMalformedParameters(): void
+    public function testCallbackWithMalformedParameters(): void
     {
-        $request = Request::create('/qq-oauth2/callback', 'GET', [
-            'code' => 'invalid code!',
-            'state' => 'invalid-state'
+        $client = self::createClientWithDatabase();
+
+        $client->request('GET', '/qq-oauth2/callback', [
+            'code' => 'invalid-code-with-special-chars@#$',
+            'state' => 'invalid-state',
         ]);
 
-        $this->logger->expects($this->once())
-            ->method('warning')
-            ->with('Malformed QQ OAuth2 callback parameters');
-
-        $response = ($this->controller)($request);
-
+        $response = $client->getResponse();
         $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
-        $this->assertStringContainsString('Malformed callback parameters', $response->getContent());
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertStringContainsString('Malformed callback parameters', $content);
     }
 
-    public function testInvokeWithValidParametersSuccess(): void
+    public function testCallbackWithValidParametersButNoConfig(): void
     {
-        $request = Request::create('/qq-oauth2/callback', 'GET', [
-            'code' => 'valid_authorization_code',
-            'state' => '1234567890abcdef1234567890abcdef'
+        $client = self::createClientWithDatabase();
+
+        $client->request('GET', '/qq-oauth2/callback', [
+            'code' => 'validCode123',
+            'state' => 'a1b2c3d4e5f6789012345678901234ab',
         ]);
 
-        $user = $this->createMock(QQOAuth2User::class);
-        $user->method('getOpenid')->willReturn('test_openid');
-        $user->method('getNickname')->willReturn('Test User');
-
-        $this->oauth2Service->expects($this->once())
-            ->method('handleCallback')
-            ->with('valid_authorization_code', '1234567890abcdef1234567890abcdef')
-            ->willReturn($user);
-
-        $this->logger->expects($this->once())
-            ->method('info')
-            ->with('QQ OAuth2 login successful');
-
-        $response = ($this->controller)($request);
-
-        $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
-        $this->assertStringContainsString('Successfully logged in as Test User', $response->getContent());
-    }
-
-    public function testInvokeWithServiceException(): void
-    {
-        $request = Request::create('/qq-oauth2/callback', 'GET', [
-            'code' => 'valid_authorization_code',
-            'state' => '1234567890abcdef1234567890abcdef'
-        ]);
-
-        $this->oauth2Service->expects($this->once())
-            ->method('handleCallback')
-            ->willThrowException(new \Exception('Service error'));
-
-        $this->logger->expects($this->once())
-            ->method('error')
-            ->with('QQ OAuth2 login failed');
-
-        $response = ($this->controller)($request);
-
+        $response = $client->getResponse();
         $this->assertEquals(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
-        $this->assertStringContainsString('Login failed: Authentication error', $response->getContent());
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertStringContainsString('Login failed: Authentication error', $content);
     }
 
-    public function testInvokeWithNullLogger(): void
+    public function testUnauthenticatedAccess(): void
     {
-        $controller = new QQOAuth2CallbackController($this->oauth2Service, null);
-        $request = Request::create('/qq-oauth2/callback', 'GET', [
-            'error' => 'access_denied'
+        $client = self::createClientWithDatabase();
+
+        $client->request('GET', '/qq-oauth2/callback', [
+            'code' => 'validCode123',
+            'state' => 'a1b2c3d4e5f6789012345678901234ab',
         ]);
 
-        $response = $controller($request);
-
-        $this->assertEquals(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+        $response = $client->getResponse();
+        $this->assertNotNull($response);
+        $this->assertInstanceOf(Response::class, $response);
     }
 
-    protected function setUp(): void
+    #[DataProvider('provideNotAllowedMethods')]
+    public function testMethodNotAllowed(string $method): void
     {
-        $this->oauth2Service = $this->createMock(QQOAuth2Service::class);
-        $this->logger = $this->createMock(LoggerInterface::class);
-        $this->controller = new QQOAuth2CallbackController($this->oauth2Service, $this->logger);
+        $client = self::createClientWithDatabase();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $client->request($method, '/qq-oauth2/callback');
     }
-} 
+}

@@ -20,9 +20,10 @@ use Tourze\QQConnectOAuth2Bundle\Repository\QQOAuth2ConfigRepository;
 class QQOAuth2ConfigCommand extends Command
 {
     protected const NAME = 'qq-oauth2:config';
+
     public function __construct(
         private QQOAuth2ConfigRepository $configRepository,
-        private EntityManagerInterface $entityManager
+        private EntityManagerInterface $entityManager,
     ) {
         parent::__construct();
     }
@@ -54,7 +55,9 @@ class QQOAuth2ConfigCommand extends Command
             case 'list':
                 return $this->listConfigs($io);
             default:
-                $io->error(sprintf('Unknown action: %s. Valid actions are: create, update, delete, list', $action));
+                $actionStr = is_string($action) ? $action : 'unknown';
+                $io->error(sprintf('Unknown action: %s. Valid actions are: create, update, delete, list', $actionStr));
+
                 return Command::FAILURE;
         }
     }
@@ -64,88 +67,101 @@ class QQOAuth2ConfigCommand extends Command
         $appId = $input->getOption('app-id');
         $appSecret = $input->getOption('app-secret');
 
-        if (!is_string($appId) || !is_string($appSecret) || $appId === '' || $appSecret === '') {
+        if (!is_string($appId) || !is_string($appSecret) || '' === $appId || '' === $appSecret) {
             $io->error('Required options: --app-id, --app-secret');
+
             return Command::FAILURE;
         }
 
         $config = new QQOAuth2Config();
-        $config->setAppId($appId)
-            ->setAppSecret($appSecret);
+        $config->setAppId($appId);
+        $config->setAppSecret($appSecret);
 
         $scope = $input->getOption('scope');
-        if (is_string($scope) && $scope !== '') {
+        if (is_string($scope) && '' !== $scope) {
             $config->setScope($scope);
         }
 
-        $config->setValid($input->getOption('enabled') !== 'false');
+        $config->setValid('false' !== $input->getOption('enabled'));
 
         $this->entityManager->persist($config);
         $this->entityManager->flush();
 
         $io->success(sprintf('QQ OAuth2 config created with ID: %d', $config->getId()));
+
         return Command::SUCCESS;
     }
 
     private function updateConfig(InputInterface $input, SymfonyStyle $io): int
     {
         $id = $input->getOption('id');
-        if ($id === null) {
+        if (null === $id) {
             $io->error('Option --id is required for update action');
+
             return Command::FAILURE;
         }
 
         $config = $this->configRepository->find($id);
-        if ($config === null) {
-            $io->error(sprintf('Config with ID %d not found', $id));
+        if (null === $config) {
+            $io->error(sprintf('Config with ID %s not found', is_scalar($id) ? (string) $id : 'unknown'));
+
             return Command::FAILURE;
         }
 
-        $appId = $input->getOption('app-id');
-        if (is_string($appId) && $appId !== '') {
-            $config->setAppId($appId);
-        }
-
-        $appSecret = $input->getOption('app-secret');
-        if (is_string($appSecret) && $appSecret !== '') {
-            $config->setAppSecret($appSecret);
-        }
-
-
-        if ($input->hasOption('scope')) {
-            $config->setScope($input->getOption('scope'));
-        }
-
-        if ($input->hasOption('enabled')) {
-            $config->setValid($input->getOption('enabled') !== 'false');
-        }
+        $this->updateConfigFields($config, $input);
 
         // TimestampableAware trait will automatically set updateTime
         $this->entityManager->persist($config);
         $this->entityManager->flush();
 
-        $io->success(sprintf('QQ OAuth2 config %d updated', $id));
+        $io->success(sprintf('QQ OAuth2 config %s updated', is_scalar($id) ? (string) $id : 'unknown'));
+
         return Command::SUCCESS;
+    }
+
+    private function updateConfigFields(QQOAuth2Config $config, InputInterface $input): void
+    {
+        $appId = $input->getOption('app-id');
+        if (is_string($appId) && '' !== $appId) {
+            $config->setAppId($appId);
+        }
+
+        $appSecret = $input->getOption('app-secret');
+        if (is_string($appSecret) && '' !== $appSecret) {
+            $config->setAppSecret($appSecret);
+        }
+
+        if ($input->hasOption('scope')) {
+            $scope = $input->getOption('scope');
+            $config->setScope(is_string($scope) ? $scope : null);
+        }
+
+        if ($input->hasOption('enabled')) {
+            $config->setValid('false' !== $input->getOption('enabled'));
+        }
     }
 
     private function deleteConfig(InputInterface $input, SymfonyStyle $io): int
     {
         $id = $input->getOption('id');
-        if ($id === null) {
+        if (null === $id) {
             $io->error('Option --id is required for delete action');
+
             return Command::FAILURE;
         }
 
         $config = $this->configRepository->find($id);
-        if ($config === null) {
-            $io->error(sprintf('Config with ID %d not found', $id));
+        if (null === $config) {
+            $io->error(sprintf('Config with ID %s not found', is_scalar($id) ? (string) $id : 'unknown'));
+
             return Command::FAILURE;
         }
 
         $this->entityManager->remove($config);
         $this->entityManager->flush();
 
-        $io->success(sprintf('QQ OAuth2 config %d deleted', $id));
+        $io->success(sprintf('QQ OAuth2 config %s deleted', is_scalar($id) ? (string) $id : 'unknown'));
+
         return Command::SUCCESS;
     }
 
@@ -153,8 +169,9 @@ class QQOAuth2ConfigCommand extends Command
     {
         $configs = $this->configRepository->findAll();
 
-        if (empty($configs)) {
+        if ([] === $configs) {
             $io->info('No QQ OAuth2 configurations found');
+
             return Command::SUCCESS;
         }
 
@@ -166,7 +183,7 @@ class QQOAuth2ConfigCommand extends Command
                 'Auto-generated',
                 $config->getScope() ?? 'default',
                 $config->isValid() ? 'Yes' : 'No',
-                $config->getCreateTime()->format('Y-m-d H:i:s'),
+                $config->getCreateTime()?->format('Y-m-d H:i:s') ?? 'N/A',
             ];
         }
 

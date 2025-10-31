@@ -1,0 +1,25 @@
+# Essential routes for EasyAdmin templates
+app_logout:
+  path: /logout
+  controller: SymfonyTestingFramework\Controller\SecurityController::logout
+  methods: [POST]
+
+app_login:
+  path: /login
+  controller: SymfonyTestingFramework\Controller\SecurityController::login
+  methods: [GET, POST]
+
+# EasyAdmin routes
+easyadmin:
+  resource: .
+  type: 'easyadmin.routes'
+
+qq_oauth2_callback:
+    path: /qq-oauth2/callback
+    controller: Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2CallbackController
+    methods: [GET]
+
+qq_oauth2_login:
+    path: /qq-oauth2/login
+    controller: Tourze\QQConnectOAuth2Bundle\Controller\QQOAuth2LoginController
+    methods: [GET, POST]
