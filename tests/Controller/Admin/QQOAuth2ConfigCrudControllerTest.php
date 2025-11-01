@@ -121,8 +121,7 @@ final class QQOAuth2ConfigCrudControllerTest extends AbstractEasyAdminController
 
     public function testValidationErrors(): void
     {
-        $client = self::createClientWithDatabase();
-        $this->loginAsAdmin($client);
+        $client = self::createAuthenticatedClient();
 
         // 创建一个无效的配置实体进行验证测试
         $config = new QQOAuth2Config();
