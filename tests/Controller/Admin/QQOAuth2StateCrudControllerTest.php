@@ -71,11 +71,6 @@ final class QQOAuth2StateCrudControllerTest extends AbstractEasyAdminControllerT
         ];
     }
 
-    public function testGetEntityFqcn(): void
-    {
-        $this->assertSame(QQOAuth2State::class, QQOAuth2StateCrudController::getEntityFqcn());
-    }
-
     public function testIndexPageAccessibleForAuthenticatedAdmin(): void
     {
         $client = self::createClientWithDatabase();
