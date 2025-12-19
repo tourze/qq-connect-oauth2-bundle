@@ -27,7 +27,7 @@ final class QQOAuth2CleanupCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2CleanupCommand::class);
         $this->assertInstanceOf(QQOAuth2CleanupCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:cleanup');
 
         return new CommandTester($command);
@@ -62,7 +62,10 @@ final class QQOAuth2CleanupCommandTest extends AbstractCommandTestCase
         // Verify table exists
         $connection = $em->getConnection();
         $schemaManager = $connection->createSchemaManager();
-        $tables = $schemaManager->listTableNames();
+        $tableNames = $schemaManager->introspectTableNames();
+
+        // Convert OptionallyQualifiedName objects to unquoted strings
+        $tables = array_map(static fn($name) => $name->getUnqualifiedName()->getValue(), $tableNames);
 
         if (!in_array('qq_oauth2_state', $tables, true)) {
             throw new QQOAuth2ConfigurationException('Table qq_oauth2_state was not created: ' . implode(', ', $tables));
@@ -91,7 +94,7 @@ final class QQOAuth2CleanupCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2CleanupCommand::class);
         $this->assertInstanceOf(QQOAuth2CleanupCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:cleanup');
         $commandTester = new CommandTester($command);
 

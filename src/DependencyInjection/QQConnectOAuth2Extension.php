@@ -4,7 +4,7 @@ namespace Tourze\QQConnectOAuth2Bundle\DependencyInjection;
 
 use Tourze\SymfonyDependencyServiceLoader\AutoExtension;
 
-class QQConnectOAuth2Extension extends AutoExtension
+final class QQConnectOAuth2Extension extends AutoExtension
 {
     protected function getConfigDir(): string
     {

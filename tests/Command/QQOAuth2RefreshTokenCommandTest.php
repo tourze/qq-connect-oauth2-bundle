@@ -24,7 +24,7 @@ final class QQOAuth2RefreshTokenCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2RefreshTokenCommand::class);
         $this->assertInstanceOf(QQOAuth2RefreshTokenCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:refresh-token');
 
         return new CommandTester($command);
@@ -61,7 +61,7 @@ final class QQOAuth2RefreshTokenCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2RefreshTokenCommand::class);
         $this->assertInstanceOf(QQOAuth2RefreshTokenCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:refresh-token');
         $commandTester = new CommandTester($command);
 
@@ -79,7 +79,7 @@ final class QQOAuth2RefreshTokenCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2RefreshTokenCommand::class);
         $this->assertInstanceOf(QQOAuth2RefreshTokenCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:refresh-token');
         $commandTester = new CommandTester($command);
 

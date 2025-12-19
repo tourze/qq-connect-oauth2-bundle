@@ -24,7 +24,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
 
         return new CommandTester($command);
@@ -60,7 +60,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
         $commandTester = new CommandTester($command);
 
@@ -100,7 +100,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
         $commandTester = new CommandTester($command);
 
@@ -120,7 +120,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
         $commandTester = new CommandTester($command);
 
@@ -156,7 +156,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
         $commandTester = new CommandTester($command);
 
@@ -185,7 +185,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
         $commandTester = new CommandTester($command);
 
@@ -216,7 +216,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
         $commandTester = new CommandTester($command);
 
@@ -238,7 +238,7 @@ final class QQOAuth2ConfigCommandTest extends AbstractCommandTestCase
         $command = self::getContainer()->get(QQOAuth2ConfigCommand::class);
         $this->assertInstanceOf(QQOAuth2ConfigCommand::class, $command);
         $application = new Application();
-        $application->add($command);
+        $application->addCommand($command);
         $command = $application->find('qq-oauth2:config');
         $commandTester = new CommandTester($command);
 
